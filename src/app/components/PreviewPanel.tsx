@@ -79,6 +79,39 @@ export function PreviewPanel(props: PreviewPanelProps) {
             </div>
             
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const event = new CustomEvent("BLOG_AUTO_WRITE_INJECT", {
+                    detail: {
+                      title: post.title,
+                      content: post.content,
+                      images: post.images || []
+                    }
+                  });
+
+                  let handled = false;
+                  const ackListener = () => {
+                    handled = true;
+                    window.removeEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
+                  };
+                  window.addEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
+
+                  window.dispatchEvent(event);
+
+                  setTimeout(() => {
+                    if (!handled) {
+                      window.removeEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
+                      alert("오류: BlogAutoWrite Helper 크롬 익스텐션이 설치되어 있지 않거나 활성화되지 않았습니다. 익스텐션을 설치 및 활성화한 후 시도해 주세요.");
+                    }
+                  }, 300);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#03c75a] hover:bg-[#02b34f] text-white text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                네이버 글쓰기
+              </button>
               <span className="text-[10px] font-mono text-[#777] bg-gray-100 px-2 py-1.5 rounded border border-gray-200/50 select-all">
                 ID: {post.id?.substring(0, 8)}...
               </span>

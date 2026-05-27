@@ -91,6 +91,35 @@ if (window.location.hostname.includes("editor.blog.naver.com")) {
   });
 }
 
+// 4. Listen for custom events from the Next.js web application (only on the dashboard pages)
+const isDashboard = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.includes("vercel.app");
+if (isDashboard) {
+  window.addEventListener("BLOG_AUTO_WRITE_INJECT", (e) => {
+    // Acknowledge the message immediately so the web page knows the extension is installed
+    window.dispatchEvent(new CustomEvent("BLOG_AUTO_WRITE_INJECT_ACK"));
+
+    const { title, content, images } = e.detail;
+
+    // Get the Naver Blog ID from extension storage
+    chrome.storage.local.get("blogId", (result) => {
+      const blogId = result.blogId;
+      if (!blogId) {
+        alert("오류: 크롬 익스텐션 설정에서 네이버 블로그 ID를 먼저 기입해 주세요.");
+        return;
+      }
+
+      // Store pending injection in local storage
+      chrome.storage.local.set({
+        pendingInjection: { title, content, images }
+      }, () => {
+        // Open the write editor URL
+        const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
+        window.open(writeUrl, "_blank");
+      });
+    });
+  });
+}
+
 /**
  * Execute typing macro for Naver SmartEditor ONE
  */

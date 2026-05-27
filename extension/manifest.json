@@ -11,7 +11,9 @@
   "host_permissions": [
     "https://blog.naver.com/*",
     "https://editor.blog.naver.com/*",
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
+    "https://*.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -25,7 +27,10 @@
     {
       "matches": [
         "https://blog.naver.com/*",
-        "https://editor.blog.naver.com/*"
+        "https://editor.blog.naver.com/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "https://*.vercel.app/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle",
