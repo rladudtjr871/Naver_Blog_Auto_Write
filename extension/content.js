@@ -26,23 +26,25 @@ try {
   console.log("Config fetch skipped. Using default fallback selectors.");
 }
 
-// Listen for messages from popup.js
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "INJECT_POST") {
-    const { title, content, images } = request.data;
-    
-    injectBlogContent(title, content, images)
-      .then(() => {
-        sendResponse({ success: true });
-      })
-      .catch((err) => {
-        console.error("Injection failed:", err);
-        sendResponse({ success: false, error: err.message });
-      });
+// Listen for messages from popup.js (only in the editor frame context)
+if (window.location.hostname.includes("editor.blog.naver.com")) {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "INJECT_POST") {
+      const { title, content, images } = request.data;
       
-    return true; // Keep message channel open for asynchronous response
-  }
-});
+      injectBlogContent(title, content, images)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((err) => {
+          console.error("Injection failed:", err);
+          sendResponse({ success: false, error: err.message });
+        });
+        
+      return true; // Keep message channel open for asynchronous response
+    }
+  });
+}
 
 /**
  * Execute typing macro for Naver SmartEditor ONE
