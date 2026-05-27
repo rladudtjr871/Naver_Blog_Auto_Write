@@ -28,6 +28,13 @@
       <input type="text" id="serverUrl" value="http://localhost:3000" placeholder="http://localhost:3000">
     </div>
     <div class="form-group">
+      <label for="blogId">네이버 블로그 ID</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="blogId" placeholder="블로그 ID 입력" style="flex: 1; min-width: 0;">
+        <button id="openEditorBtn" style="width: auto; white-space: nowrap; padding: 8px 12px; font-size: 11px; flex-shrink: 0;">글쓰기 열기</button>
+      </div>
+    </div>
+    <div class="form-group">
       <label for="postId">포스트 ID (UUID)</label>
       <input type="text" id="postId" placeholder="생성된 포스트 ID 입력">
     </div>

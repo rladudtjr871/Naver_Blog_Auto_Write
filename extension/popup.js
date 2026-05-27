@@ -3,6 +3,8 @@ let fetchedPostData = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const serverUrlInput = document.getElementById("serverUrl");
+  const blogIdInput = document.getElementById("blogId");
+  const openEditorBtn = document.getElementById("openEditorBtn");
   const postIdInput = document.getElementById("postId");
   const accessTokenInput = document.getElementById("accessToken");
   const syncStatusSpan = document.getElementById("syncStatus");
@@ -88,8 +90,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 3. Load saved settings from Chrome Storage
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["serverUrl", "postId", "accessToken"], (result) => {
+    chrome.storage.local.get(["serverUrl", "blogId", "postId", "accessToken"], (result) => {
       if (result.serverUrl) serverUrlInput.value = result.serverUrl;
+      if (result.blogId) blogIdInput.value = result.blogId;
       if (result.postId) postIdInput.value = result.postId;
       if (result.accessToken) {
         accessTokenInput.value = result.accessToken;
@@ -100,6 +103,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       syncTokenFromTab();
     });
   }
+
+  // Save manual blogId changes
+  blogIdInput.addEventListener("input", () => {
+    const blogId = blogIdInput.value.trim();
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ blogId });
+    }
+  });
+
+  // Open Naver Blog Write editor window
+  openEditorBtn.addEventListener("click", () => {
+    const blogId = blogIdInput.value.trim();
+    if (!blogId) {
+      alert("네이버 블로그 ID를 입력해 주세요.");
+      return;
+    }
+    const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
+    if (typeof chrome !== "undefined" && chrome.tabs) {
+      chrome.tabs.create({ url: writeUrl });
+    } else {
+      window.open(writeUrl, "_blank");
+    }
+  });
 
   // 4. Save manual token changes
   accessTokenInput.addEventListener("input", () => {
