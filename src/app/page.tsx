@@ -37,7 +37,7 @@ export default function Home() {
   
   // Blog Form states
   const [category, setCategory] = useState("IT/테크");
-  const [model, setModel] = useState("OPENAI");
+  const [model, setModel] = useState("");
   const [guideText, setGuideText] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   
@@ -100,6 +100,17 @@ export default function Home() {
       console.error("Failed to load key statuses:", err);
     }
   };
+
+  // 3. Auto-select active model engine based on saved keys
+  useEffect(() => {
+    if (savedKeysStatus.openai) {
+      setModel("OPENAI");
+    } else if (savedKeysStatus.gemini) {
+      setModel("GEMINI");
+    } else {
+      setModel("");
+    }
+  }, [savedKeysStatus]);
 
   // Auth Action Handlers
   const handleSignUp = async (e: React.FormEvent) => {
@@ -209,7 +220,7 @@ export default function Home() {
   // Start generation
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guideText.trim() || !session?.access_token) return;
+    if (!guideText.trim() || !model || !session?.access_token) return;
 
     setProgress(10);
     setPost({
@@ -550,26 +561,26 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setModel("OPENAI")}
-                    disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 cursor-pointer ${
+                    disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.openai}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                       model === "OPENAI"
                         ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                         : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
                     }`}
                   >
-                    OpenAI GPT-4o
+                    OpenAI GPT-4o {!savedKeysStatus.openai && " (API 키 필요)"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setModel("GEMINI")}
-                    disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 cursor-pointer ${
+                    disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.gemini}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                       model === "GEMINI"
                         ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                         : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
                     }`}
                   >
-                    Gemini 1.5 Pro
+                    Gemini 1.5 Pro {!savedKeysStatus.gemini && " (API 키 필요)"}
                   </button>
                 </div>
               </div>
@@ -641,7 +652,7 @@ export default function Home() {
                 </button>
                 <button
                   type="submit"
-                  disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !guideText.trim()}
+                  disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !guideText.trim() || !model}
                   className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 glow-btn cursor-pointer"
                 >
                   AI 블로그 자동 생성
