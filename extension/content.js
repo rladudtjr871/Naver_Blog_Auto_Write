@@ -44,6 +44,18 @@ if (window.location.hostname.includes("editor.blog.naver.com")) {
       return true; // Keep message channel open for asynchronous response
     }
   });
+
+  // Auto-run if there is a pending injection from direct tab open
+  chrome.storage.local.get("pendingInjection", (result) => {
+    if (result && result.pendingInjection) {
+      const data = result.pendingInjection;
+      // Consume the pending injection immediately to prevent loops
+      chrome.storage.local.remove("pendingInjection", () => {
+        console.log("Pending injection data consumed.");
+      });
+      waitForEditorAndInject(data.title, data.content, data.images);
+    }
+  });
 }
 
 /**
@@ -186,4 +198,39 @@ function createImageHelperOverlay(images) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Polls for editor selectors to be loaded and ready, then performs autoinjection.
+ */
+async function waitForEditorAndInject(title, content, images) {
+  console.log("Waiting for Naver editor elements to be ready...");
+  let attempts = 0;
+  const maxAttempts = 30; // 30 attempts * 500ms = 15 seconds max wait
+  
+  while (attempts < maxAttempts) {
+    const selectors = editorConfig ? editorConfig.naver_editor_selectors : null;
+    if (selectors) {
+      const titleEl = document.querySelector(selectors.title_input);
+      const contentEl = document.querySelector(selectors.content_editable);
+      
+      if (titleEl && contentEl) {
+        console.log("Editor elements found! Injecting content automatically...");
+        try {
+          await injectBlogContent(title, content, images);
+          console.log("Automatic injection successful!");
+        } catch (err) {
+          console.error("Automatic injection failed:", err);
+          alert(`자동 주입 실패: ${err.message}`);
+        }
+        return;
+      }
+    }
+    
+    attempts++;
+    await sleep(500);
+  }
+  
+  console.error("Editor elements not found after 15 seconds. Autoinjection aborted.");
+  alert("자동 주입 실패: 네이버 블로그 에디터를 찾지 못했습니다. 에디터 모드인지 확인해 주세요.");
 }

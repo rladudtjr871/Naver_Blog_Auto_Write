@@ -205,7 +205,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // 6. Trigger injection in current active tab
+  // 6. Trigger injection in current active tab or open write page automatically
   injectBtn.addEventListener("click", async () => {
     if (!fetchedPostData) return;
 
@@ -214,48 +214,69 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
-      alert("활성화된 탭을 찾을 수 없습니다.");
+    const blogId = blogIdInput.value.trim();
+    if (!blogId) {
+      alert("네이버 블로그 ID를 입력해 주세요.");
       return;
     }
 
-    const isNaverBlog = tab.url && (
-      tab.url.includes("blog.naver.com") || 
-      tab.url.includes("editor.blog.naver.com")
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Check if current active tab is already the editor for this blog ID
+    const isCurrentTabBlogEditor = tab && tab.url && (
+      tab.url.includes("editor.blog.naver.com") ||
+      (tab.url.includes("blog.naver.com") && tab.url.includes("PostWrite.naver") && tab.url.includes(`blogId=${blogId}`)) ||
+      (tab.url.includes("blog.naver.com") && tab.url.includes(blogId) && tab.url.toLowerCase().includes("redirect=write"))
     );
 
-    if (!isNaverBlog) {
-      alert("네이버 블로그 글쓰기 에디터 페이지를 먼저 활성화해야 합니다.");
-      return;
+    if (isCurrentTabBlogEditor) {
+      // Direct injection into current active editor tab
+      injectBtn.textContent = "네이버 주입 요청 중...";
+      injectBtn.disabled = true;
+
+      chrome.tabs.sendMessage(tab.id, { 
+        action: "INJECT_POST", 
+        data: {
+          title: fetchedPostData.title,
+          content: fetchedPostData.content,
+          images: fetchedPostData.images || []
+        } 
+      }, (response) => {
+        injectBtn.textContent = "네이버 블로그 주입하기";
+        injectBtn.disabled = false;
+
+        if (chrome.runtime.lastError) {
+          console.error("Message Error:", chrome.runtime.lastError);
+          alert("콘텐츠 스크립트가 로드되지 않았거나 주입 대기 상태가 아닙니다. 페이지를 새로고침한 후 다시 시도해 보세요.");
+          return;
+        }
+
+        if (response && response.success) {
+          alert("성공적으로 네이버 스마트에디터 ONE 주입 매크로가 실행되었습니다!");
+        } else {
+          alert(`주입 실패: ${response ? response.error : "알 수 없는 에러"}`);
+        }
+      });
+    } else {
+      // Save pending injection to storage and open new write tab
+      injectBtn.textContent = "페이지 여는 중...";
+      injectBtn.disabled = true;
+
+      chrome.storage.local.set({
+        pendingInjection: {
+          title: fetchedPostData.title,
+          content: fetchedPostData.content,
+          images: fetchedPostData.images || []
+        }
+      }, () => {
+        const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
+        chrome.tabs.create({ url: writeUrl }, () => {
+          injectBtn.textContent = "네이버 블로그 주입하기";
+          injectBtn.disabled = false;
+          window.close(); // Close the popup since focus moves to the new tab
+        });
+      });
     }
-
-    injectBtn.textContent = "네이버 주입 요청 중...";
-    injectBtn.disabled = true;
-
-    chrome.tabs.sendMessage(tab.id, { 
-      action: "INJECT_POST", 
-      data: {
-        title: fetchedPostData.title,
-        content: fetchedPostData.content,
-        images: fetchedPostData.images || []
-      } 
-    }, (response) => {
-      injectBtn.textContent = "네이버 블로그 주입하기";
-      injectBtn.disabled = false;
-
-      if (chrome.runtime.lastError) {
-        console.error("Message Error:", chrome.runtime.lastError);
-        alert("콘텐츠 스크립트가 로드되지 않았거나 주입 대기 상태가 아닙니다. 페이지를 새로고침한 후 다시 시도해 보세요.");
-        return;
-      }
-
-      if (response && response.success) {
-        alert("성공적으로 네이버 스마트에디터 ONE 주입 매크로가 실행되었습니다!");
-      } else {
-        alert(`주입 실패: ${response ? response.error : "알 수 없는 에러"}`);
-      }
-    });
   });
 
   function resetStatusPanel() {
