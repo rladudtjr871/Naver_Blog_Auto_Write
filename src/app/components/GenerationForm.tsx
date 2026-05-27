@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { PostState } from "../hooks/useHome";
 
 type GenerationFormProps = {
@@ -8,8 +8,10 @@ type GenerationFormProps = {
   setCategory: (val: string) => void;
   model: string;
   setModel: (val: string) => void;
-  guideText: string;
-  setGuideText: (val: string) => void;
+  subject: string;
+  setSubject: (val: string) => void;
+  references: string[];
+  setReferences: React.Dispatch<React.SetStateAction<string[]>>;
   uploadedImages: string[];
   setUploadedImages: React.Dispatch<React.SetStateAction<string[]>>;
   post: PostState;
@@ -25,8 +27,10 @@ export function GenerationForm(props: GenerationFormProps) {
     setCategory,
     model,
     setModel,
-    guideText,
-    setGuideText,
+    subject,
+    setSubject,
+    references,
+    setReferences,
     uploadedImages,
     setUploadedImages,
     post,
@@ -35,6 +39,8 @@ export function GenerationForm(props: GenerationFormProps) {
     handleReset,
     handleGenerate,
   } = props;
+
+  const [activeExampleTab, setActiveExampleTab] = useState(0);
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex flex-col gap-5 bg-white border border-[#e4e8eb] shadow-xs">
@@ -103,17 +109,102 @@ export function GenerationForm(props: GenerationFormProps) {
           </div>
         </div>
 
-        {/* Guide guideline Textarea */}
+        {/* Blog Subject */}
         <div>
-          <label className="block text-xs font-bold text-[#333] mb-2">작성 가이드라인</label>
-          <textarea
-            value={guideText}
-            onChange={(e) => setGuideText(e.target.value)}
+          <label className="block text-xs font-bold text-[#333] mb-2">블로그 주제</label>
+          <input
+            type="text"
+            required
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
             disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-            placeholder="예: 제주도 서귀포 흑돼지 전문점을 방문한 후기를 작성해줘. 분위기는 활기차고, 고기가 구워지는 비주얼을 시각적으로 묘사해줘. 해시태그 5개 추천 포함."
-            rows={6}
-            className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all resize-none placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
+            placeholder="예: 제주도 서귀포 흑돼지 전문점 방문 후기"
+            className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
           />
+        </div>
+
+        {/* Benchmarking Examples */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-[#333]">벤치마킹할 예시 블로그</label>
+            <span className="text-[10px] text-gray-400">학습할 글의 작성 스타일을 복사해 넣으세요.</span>
+          </div>
+
+          <div className="bg-[#fafbfc] border border-[#e4e8eb] rounded-xl p-3.5 flex flex-col gap-3">
+            {/* Tab Headers */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none scrollbar-none">
+              {references.map((ref, idx) => {
+                const hasText = ref && ref.trim().length > 0;
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1 bg-white border border-gray-200/80 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-all cursor-pointer hover:bg-gray-50 focus-within:ring-1 focus-within:ring-[#03c75a]/20"
+                    style={{
+                      borderColor: activeExampleTab === idx ? "#03c75a" : "",
+                      color: activeExampleTab === idx ? "#03c75a" : "",
+                      backgroundColor: activeExampleTab === idx ? "rgba(3, 199, 90, 0.05)" : "",
+                    }}
+                    onClick={() => setActiveExampleTab(idx)}
+                  >
+                    <span>예시 {idx + 1}</span>
+                    {hasText && (
+                      <span className="w-1.5 h-1.5 bg-[#03c75a] rounded-full" />
+                    )}
+                    {references.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const newRefs = references.filter((_, i) => i !== idx);
+                          setReferences(newRefs);
+                          if (activeExampleTab >= newRefs.length) {
+                            setActiveExampleTab(Math.max(0, newRefs.length - 1));
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-500 rounded p-0.5 ml-1 transition-colors cursor-pointer flex items-center justify-center"
+                        title="예시 슬롯 삭제"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+
+              {references.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newRefs = [...references, ""];
+                    setReferences(newRefs);
+                    setActiveExampleTab(newRefs.length - 1);
+                  }}
+                  className="bg-white hover:bg-gray-50 border border-dashed border-[#ccd2d6] hover:border-[#03c75a] text-[#555] hover:text-[#03c75a] font-bold text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  추가
+                </button>
+              )}
+            </div>
+
+            {/* Active Tab Textarea */}
+            <textarea
+              value={references[activeExampleTab] || ""}
+              onChange={(e) => {
+                const newRefs = [...references];
+                newRefs[activeExampleTab] = e.target.value;
+                setReferences(newRefs);
+              }}
+              disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+              placeholder={`예시 블로그 ${activeExampleTab + 1}의 본문 글을 복사해서 붙여넣어 주세요.`}
+              rows={5}
+              className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-xs text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all resize-none placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
+            />
+          </div>
         </div>
 
         {/* Image Input */}
@@ -170,7 +261,7 @@ export function GenerationForm(props: GenerationFormProps) {
           </button>
           <button
             type="submit"
-            disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !guideText.trim() || !model}
+            disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !subject.trim() || !model}
             className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 glow-btn cursor-pointer"
           >
             AI 블로그 자동 생성

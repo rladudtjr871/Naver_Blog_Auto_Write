@@ -82,7 +82,8 @@ export function useHome() {
   // Blog Form states
   const [category, setCategory] = useState("IT/테크");
   const [model, setModel] = useState("");
-  const [guideText, setGuideText] = useState("");
+  const [subject, setSubject] = useState("");
+  const [references, setReferences] = useState<string[]>([""]);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   
   // Generation Process state
@@ -267,7 +268,7 @@ export function useHome() {
   // Start generation
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guideText.trim() || !model || !session?.access_token) return;
+    if (!subject.trim() || !model || !session?.access_token) return;
 
     setProgress(10);
     setPost({
@@ -286,7 +287,9 @@ export function useHome() {
           "Authorization": `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          guideText: `[카테고리: ${category}] ${guideText}`,
+          category,
+          subject,
+          references,
           images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
           model: model,
         }),
@@ -389,7 +392,8 @@ export function useHome() {
       images: [],
     });
     setProgress(0);
-    setGuideText("");
+    setSubject("");
+    setReferences([""]);
     setUploadedImages([]);
   };
 
@@ -418,8 +422,10 @@ export function useHome() {
     setCategory,
     model,
     setModel,
-    guideText,
-    setGuideText,
+    subject,
+    setSubject,
+    references,
+    setReferences,
     uploadedImages,
     setUploadedImages,
     post,

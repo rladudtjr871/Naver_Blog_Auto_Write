@@ -48,8 +48,22 @@ export async function generateBlogContent(postId: string, provider: string, guid
     let generatedTitle = "";
     let generatedContent = "";
 
+    // 5. Fetch reference posts (topic and example blogs) from database
+    const { data: refPosts, error: refError } = await supabaseAdmin
+      .from("ReferencePost")
+      .select("title, content")
+      .eq("blogPostId", postId);
+
+    if (refError) throw refError;
+
+    const topicRecord = refPosts?.find(r => r.title === "주제");
+    const blogTopic = topicRecord?.content || guideText;
+
+    const exampleRecords = refPosts?.filter(r => r.title !== "주제") || [];
+    const exampleBlogs = exampleRecords.map(r => r.content);
+
     const systemPrompt = `당신은 네이버 블로그 전문 마케터이자 전문 작가입니다. 
-가이드라인과 이미지를 참고하여 고품질의 블로그 포스팅 글을 작성해야 합니다.
+제시된 주제와 이미지를 참고하고, 예시 블로그들의 스타일을 벤치마킹하여 고품질의 블로그 포스팅 글을 작성해야 합니다.
 블로그 글은 다음 규격을 엄격히 지켜야 합니다:
 1. 반드시 제목(Title)과 본문(Body)을 분리하여 작성할 것.
 2. 결과물 포맷은 최상단에 [TITLE] 태그로 제목을 한 줄 작성하고, 그 다음 라인부터 [BODY] 태그를 붙인 뒤 본문 마크다운 내용을 채울 것.
@@ -60,8 +74,21 @@ export async function generateBlogContent(postId: string, provider: string, guid
 4. 네이버 스마트에디터 ONE에 직접 타이핑될 예정이므로 가독성을 위해 단락을 자주 나누고, 소제목(##, ###)과 적절한 이모지를 적극적으로 활용하여 예쁘게 작성할 것.
 5. 함께 제공되는 이미지가 있다면 이미지 속 시각적 정보(분위기, 상품 상태, 색상, 장소 등)를 매우 세부적으로 관찰하여 본문 내용에 자연스럽게 묘사해 줄 것.`;
 
-    const userPrompt = `블로그 작성 가이드라인:
-"${guideText}"`;
+    let userPrompt = `작성할 블로그 주제:
+"${blogTopic}"
+
+아래 제공되는 예시 블로그들의 작성 스타일, 말투, 단락 구성, 이모지 활용법 및 핵심 표현 등을 철저하게 분석하고 벤치마킹하여 동일한 느낌의 고품질 블로그 글을 새로 작성해 주세요.
+
+작성 시 참고할 예시 블로그 목록:
+`;
+
+    if (exampleBlogs.length > 0) {
+      exampleBlogs.forEach((example, i) => {
+        userPrompt += `\n--- [예시 블로그 ${i + 1}] ---\n${example}\n`;
+      });
+    } else {
+      userPrompt += `\n(제공된 예시 블로그가 없습니다. 주제에 맞춰 자유롭게 작성하세요.)\n`;
+    }
 
     if (provider.toUpperCase() === "OPENAI") {
       const openai = new OpenAI({ apiKey });

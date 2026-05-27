@@ -8,10 +8,10 @@ export async function POST(request: Request) {
     const user = await getAuthUser(request);
 
     const body = await request.json();
-    const { guideText, images, model } = body;
+    const { category, subject, references, images, model } = body;
 
-    if (!guideText || !guideText.trim()) {
-      return NextResponse.json({ error: "Guide text is required" }, { status: 400 });
+    if (!subject || !subject.trim()) {
+      return NextResponse.json({ error: "Subject is required" }, { status: 400 });
     }
 
     const aiModel = model || "OPENAI";
@@ -30,14 +30,27 @@ export async function POST(request: Request) {
       throw postError || new Error("Failed to create BlogPost");
     }
 
-    // 2. Create ReferencePost record link
-    const { error: refError } = await supabaseAdmin
-      .from("ReferencePost")
-      .insert({
+    // 2. Create ReferencePost records (Subject + Examples)
+    const referenceRecords = [
+      {
         userId: user.id,
         blogPostId: blogPost.id,
-        content: guideText,
-      });
+        title: "주제",
+        content: `[카테고리: ${category || "맛집"}] ${subject}`,
+      },
+      ...(references || [])
+        .map((ref: string, index: number) => ({
+          userId: user.id,
+          blogPostId: blogPost.id,
+          title: `예시 블로그 ${index + 1}`,
+          content: ref,
+        }))
+        .filter((ref: any) => ref.content && ref.content.trim())
+    ];
+
+    const { error: refError } = await supabaseAdmin
+      .from("ReferencePost")
+      .insert(referenceRecords);
 
     if (refError) {
       throw refError;
@@ -61,7 +74,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Trigger AI Generation asynchronously
-    generateBlogContent(blogPost.id, aiModel, guideText).catch((err) => {
+    generateBlogContent(blogPost.id, aiModel, subject).catch((err) => {
       console.error("Asynchronous generation background trigger failed:", err);
     });
 
