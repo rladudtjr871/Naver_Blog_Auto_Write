@@ -31,25 +31,25 @@
       <label for="postId">포스트 ID (UUID)</label>
       <input type="text" id="postId" placeholder="생성된 포스트 ID 입력">
     </div>
-    <div class="form-group" style="margin-top: 10px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <label for="accessToken" style="margin-bottom: 0;">액세스 토큰 (JWT)</label>
-        <span id="syncStatus" style="font-size: 9px; color: #ff4d4f; font-weight: bold;">연동 안 됨</span>
+    <div class="form-group mt-10">
+      <div class="sync-header">
+        <label for="accessToken" class="mb-0">액세스 토큰 (JWT)</label>
+        <span id="syncStatus">연동 안 됨</span>
       </div>
       <input type="password" id="accessToken" placeholder="대시보드 로그인 시 자동 동기화됨">
     </div>
-    <div class="form-group" style="margin-top: 12px;">
+    <div class="form-group mt-12">
       <button id="fetchBtn">데이터 불러오기</button>
     </div>
   </div>
 
   <!-- Result Status Section -->
-  <div class="section" id="statusSection" style="display: none;">
+  <div class="section" id="statusSection">
     <p class="section-title">데이터 요약</p>
     <div class="status-panel">
       <div class="status-item">
         <span>제목:</span>
-        <span id="postTitle" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</span>
+        <span id="postTitle">-</span>
       </div>
       <div class="status-item">
         <span>이미지 수:</span>
@@ -60,7 +60,7 @@
         <span id="textLength">0자</span>
       </div>
     </div>
-    <div style="margin-top: 12px;">
+    <div class="mt-12">
       <button id="injectBtn" disabled>네이버 블로그 주입하기</button>
     </div>
   </div>

@@ -165,3 +165,40 @@
       line-height: 1.4;
       margin-top: 8px;
     }
+
+/* Helper utility classes and element styles */
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+.mb-0 {
+  margin-bottom: 0px;
+}
+
+.sync-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+#syncStatus {
+  font-size: 9px;
+  color: #ff4d4f;
+  font-weight: bold;
+}
+
+#statusSection {
+  display: none;
+}
+
+#postTitle {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
