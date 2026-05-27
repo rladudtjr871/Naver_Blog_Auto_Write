@@ -45,7 +45,7 @@ export function ApiKeyModal(props: ApiKeyModalProps) {
         </div>
 
         <p className="text-xs text-[#666] leading-normal bg-gray-50 border border-gray-100 p-3 rounded-lg">
-          입력하신 OpenAI 및 Gemini API Key는 백엔드 서버에서 <strong className="text-[#03c75a]">AES-256-GCM 알고리즘</strong>으로 즉시 암호화되어 Supabase DB에 보관됩니다. 외부 노출을 완벽히 방지합니다.
+          입력하신 OpenAI 및 Gemini API Key는 <strong className="text-[#03c75a]">즉시 암호화</strong>되어 보관됩니다.
         </p>
 
         <form onSubmit={handleSaveKeys} className="flex flex-col gap-3.5">
