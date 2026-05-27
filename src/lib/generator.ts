@@ -126,7 +126,7 @@ export async function generateBlogContent(postId: string, provider: string, guid
       generatedContent = parsed.content;
     } else if (provider.toUpperCase() === "GEMINI") {
       const ai = new GoogleGenerativeAI(apiKey);
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
       
       const parts: any[] = [
         { text: `${systemPrompt}\n\n${userPrompt}` }

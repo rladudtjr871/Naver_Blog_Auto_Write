@@ -104,7 +104,7 @@ export function GenerationForm(props: GenerationFormProps) {
                   : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
                 }`}
             >
-              Gemini 1.5 Pro {!savedKeysStatus.gemini && " (API 키 필요)"}
+              Gemini 2.5 Flash {!savedKeysStatus.gemini && " (API 키 필요)"}
             </button>
           </div>
         </div>
