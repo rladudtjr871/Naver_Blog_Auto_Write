@@ -92,7 +92,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["serverUrl", "blogId", "postId", "accessToken"], (result) => {
       if (result.serverUrl) serverUrlInput.value = result.serverUrl;
-      if (result.blogId) blogIdInput.value = result.blogId;
+      if (result.blogId) {
+        blogIdInput.value = result.blogId;
+      } else {
+        autoDetectBlogId();
+      }
       if (result.postId) postIdInput.value = result.postId;
       if (result.accessToken) {
         accessTokenInput.value = result.accessToken;
@@ -285,6 +289,52 @@ document.addEventListener("DOMContentLoaded", async () => {
     injectBtn.disabled = true;
     fetchBtn.textContent = "데이터 불러오기";
     fetchBtn.disabled = false;
+  }
+
+  function autoDetectBlogId() {
+    if (typeof chrome === "undefined" || !chrome.tabs) return;
+
+    chrome.tabs.query({}, (tabs) => {
+      if (chrome.runtime.lastError || !tabs) return;
+
+      for (const tab of tabs) {
+        if (!tab.url) continue;
+
+        try {
+          const url = new URL(tab.url);
+          if (url.hostname === "blog.naver.com" || url.hostname === "editor.blog.naver.com") {
+            // 1. Check query parameter `blogId`
+            const blogIdParam = url.searchParams.get("blogId");
+            if (blogIdParam) {
+              saveAndFillBlogId(blogIdParam);
+              return;
+            }
+
+            // 2. Check path segment (e.g., /username)
+            const pathSegments = url.pathname.split("/").filter(Boolean);
+            if (pathSegments.length > 0) {
+              const firstSegment = pathSegments[0];
+              const systemPages = ["postwrite.naver", "postlist.naver", "postview.naver", "editor", "myblog", "category"];
+              if (!systemPages.includes(firstSegment.toLowerCase()) && !firstSegment.includes(".")) {
+                saveAndFillBlogId(firstSegment);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
+    });
+  }
+
+  function saveAndFillBlogId(blogId) {
+    if (blogIdInput && !blogIdInput.value) {
+      blogIdInput.value = blogId;
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ blogId });
+      }
+    }
   }
 });
 
