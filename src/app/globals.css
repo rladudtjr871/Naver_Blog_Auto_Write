@@ -46,3 +46,19 @@ body {
 .glow-btn:hover {
   box-shadow: 0 4px 12px rgba(3, 199, 90, 0.2);
 }
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-down-fade {
+  animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
