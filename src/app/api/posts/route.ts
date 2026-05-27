@@ -16,7 +16,26 @@ export async function POST(request: Request) {
 
     const aiModel = model || "OPENAI";
 
-    // 1. Create BlogPost record (PENDING)
+    // 1. Delete any existing ReferencePosts and BlogPosts of this user (keeps max 1 temporary post per user)
+    const { error: deleteRefError } = await supabaseAdmin
+      .from("ReferencePost")
+      .delete()
+      .eq("userId", user.id);
+
+    if (deleteRefError) {
+      console.error("Failed to delete existing ReferencePosts:", deleteRefError);
+    }
+
+    const { error: deletePostError } = await supabaseAdmin
+      .from("BlogPost")
+      .delete()
+      .eq("userId", user.id);
+
+    if (deletePostError) {
+      console.error("Failed to delete existing BlogPosts:", deletePostError);
+    }
+
+    // 2. Create BlogPost record (PENDING)
     const { data: blogPost, error: postError } = await supabaseAdmin
       .from("BlogPost")
       .insert({
@@ -30,7 +49,7 @@ export async function POST(request: Request) {
       throw postError || new Error("Failed to create BlogPost");
     }
 
-    // 2. Create ReferencePost records (Subject + Examples)
+    // 3. Create ReferencePost records (Subject + Examples)
     const referenceRecords = [
       {
         userId: user.id,
@@ -56,7 +75,7 @@ export async function POST(request: Request) {
       throw refError;
     }
 
-    // 3. Create Image records if provided
+    // 4. Create Image records if provided
     if (images && Array.isArray(images) && images.length > 0) {
       const imageData = images.map((img: any) => ({
         blogPostId: blogPost.id,
@@ -73,12 +92,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Trigger AI Generation asynchronously
+    // 5. Trigger AI Generation asynchronously
     generateBlogContent(blogPost.id, aiModel, subject).catch((err) => {
       console.error("Asynchronous generation background trigger failed:", err);
     });
 
-    // 5. Instantly respond 202 Accepted
+    // 6. Instantly respond 202 Accepted
     return NextResponse.json(
       { postId: blogPost.id, status: "PENDING" },
       { status: 202 }
