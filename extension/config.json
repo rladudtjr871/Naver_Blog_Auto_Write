@@ -1,0 +1,14 @@
+{
+  "naver_editor_selectors": {
+    "title_input": ".se-document-title .se-placeholder, .se-document-title [contenteditable='true']",
+    "content_editable": ".se-content [contenteditable='true']",
+    "editor_focus_area": ".se-canvas, .se-container",
+    "image_upload_trigger": ".se-image-toolbar-button, .se-toolbar-button-image",
+    "placeholder_check": ".se-placeholder"
+  },
+  "macro_settings": {
+    "typing_delay_ms": 10,
+    "paragraph_delay_ms": 300,
+    "image_insertion_delay_ms": 1500
+  }
+}
