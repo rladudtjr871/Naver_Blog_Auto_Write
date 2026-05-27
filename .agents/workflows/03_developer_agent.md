@@ -12,3 +12,6 @@ description: 풀스택 개발 에이전트
 2. **익스텐션 개발:** 크롬 익스텐션 Manifest V3 규격을 사용하여 백엔드로부터 데이터를 받아오는 `popup.js`를 작성한다.
 3. `/browser` 도구를 켜서 네이버 블로그 글쓰기 창의 DOM 구조를 분석하고, 데이터를 안전하게 주입(Injection)하는 content script를 완성한다.
 4. 작성이 완료되면 코드 검수를 위해 `04_tester_agent.md`를 호출한다.
+5. page.tsx에 각 UI 영역 별로 컴포넌트를 가진다.
+6. 각 페이지 내 hooks 폴더를 두고 비즈니스 로직은 use{페이지명}.ts로 분리한다.
+7. 공통 기능이 발생하는 경우 utils 폴더에 정의한다. 예를 들면 날짜 유틸인 경우 dateUtils.ts

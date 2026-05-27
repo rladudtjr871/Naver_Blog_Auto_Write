@@ -1,0 +1,382 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
+
+export type ApiKeysState = {
+  openai: string;
+  gemini: string;
+};
+
+export type PostState = {
+  id: string | null;
+  status: "IDLE" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  title: string | null;
+  content: string | null;
+  images: string[];
+  errorMessage?: string | null;
+};
+
+export function useHome() {
+  // Authentication states
+  const [session, setSession] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+
+  // UI states
+  const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKeysState>({ openai: "", gemini: "" });
+  const [savedKeysStatus, setSavedKeysStatus] = useState({ openai: false, gemini: false });
+  const [isKeysLoading, setIsKeysLoading] = useState(false);
+  
+  // Blog Form states
+  const [category, setCategory] = useState("IT/테크");
+  const [model, setModel] = useState("");
+  const [guideText, setGuideText] = useState("");
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  
+  // Generation Process state
+  const [post, setPost] = useState<PostState>({
+    id: null,
+    status: "IDLE",
+    title: null,
+    content: null,
+    images: [],
+  });
+
+  const [progress, setProgress] = useState(0);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 1. Session initialization and tracking
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // 2. Fetch keys when session is established
+  useEffect(() => {
+    if (session) {
+      fetchKeysStatus();
+    }
+  }, [session]);
+
+  const fetchKeysStatus = async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/user/keys", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const hasOpenAi = data.some((k: any) => k.provider === "OPENAI" && k.hasKey);
+        const hasGemini = data.some((k: any) => k.provider === "GEMINI" && k.hasKey);
+        setSavedKeysStatus({
+          openai: hasOpenAi,
+          gemini: hasGemini,
+        });
+
+        // Auto-select active model engine based on saved keys directly in the response
+        if (hasOpenAi) {
+          setModel("OPENAI");
+        } else if (hasGemini) {
+          setModel("GEMINI");
+        } else {
+          setModel("");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load key statuses:", err);
+    }
+  };
+
+  // Auth Action Handlers
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthMessage("");
+    if (!authEmail || !authPassword) {
+      setAuthMessage("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    setIsAuthLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) throw error;
+      if (data.session) {
+        setSession(data.session);
+        setAuthMessage("회원가입이 완료되었습니다!");
+      } else {
+        setAuthMessage("가입 확인 이메일이 발송되었습니다! 이메일 링크를 확인해주세요!");
+      }
+    } catch (err: any) {
+      setAuthMessage(err.message || "회원가입 중 오류가 발생했습니다.");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthMessage("");
+    if (!authEmail || !authPassword) {
+      setAuthMessage("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    setIsAuthLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) throw error;
+      if (data.session) {
+        setSession(data.session);
+      }
+    } catch (err: any) {
+      setAuthMessage(err.message || "로그인 중 오류가 발생했습니다.");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    handleReset();
+  };
+
+  // Save API keys to backend
+  const handleSaveKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.access_token) return;
+    setIsKeysLoading(true);
+    try {
+      if (apiKeys.openai) {
+        const res = await fetch("/api/user/keys", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ provider: "OPENAI", apiKey: apiKeys.openai }),
+        });
+        if (!res.ok) throw new Error("OpenAI Key save failed");
+      }
+      if (apiKeys.gemini) {
+        const res = await fetch("/api/user/keys", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ provider: "GEMINI", apiKey: apiKeys.gemini }),
+        });
+        if (!res.ok) throw new Error("Gemini Key save failed");
+      }
+      await fetchKeysStatus();
+      setApiKeys({ openai: "", gemini: "" });
+      setIsSdkModalOpen(false);
+    } catch (err) {
+      alert("API Key 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsKeysLoading(false);
+    }
+  };
+
+  // Image Upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newImages = Array.from(files).map((file) => URL.createObjectURL(file));
+      setUploadedImages((prev) => [...prev, ...newImages]);
+    }
+  };
+
+  // Start generation
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guideText.trim() || !model || !session?.access_token) return;
+
+    setProgress(10);
+    setPost({
+      id: null,
+      status: "PENDING",
+      title: null,
+      content: null,
+      images: [],
+    });
+
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          guideText: `[카테고리: ${category}] ${guideText}`,
+          images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
+          model: model,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Generation request failed");
+      }
+
+      const data = await res.json();
+      
+      setPost({
+        id: data.postId,
+        status: data.status,
+        title: null,
+        content: null,
+        images: uploadedImages,
+      });
+
+      startPolling(data.postId);
+
+    } catch (err: any) {
+      setPost({
+        id: null,
+        status: "FAILED",
+        title: null,
+        content: null,
+        images: [],
+        errorMessage: err.message || "Failed to trigger generation API",
+      });
+      setProgress(0);
+    }
+  };
+
+  // Poll server for post completion
+  const startPolling = (postId: string) => {
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    if (!session?.access_token) return;
+    
+    let pollCount = 0;
+    
+    pollingIntervalRef.current = setInterval(async () => {
+      pollCount++;
+      try {
+        const res = await fetch(`/api/posts/${postId}`, {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        if (!res.ok) throw new Error("Status query failed");
+
+        const data = await res.json();
+        
+        let nextProgress = 20;
+        if (data.status === "PROCESSING") {
+          nextProgress = Math.min(30 + pollCount * 8, 95);
+        } else if (data.status === "COMPLETED") {
+          nextProgress = 100;
+        }
+
+        setProgress(nextProgress);
+        setPost({
+          id: data.postId,
+          status: data.status,
+          title: data.title,
+          content: data.content,
+          images: data.images ? data.images.map((img: any) => img.url) : [],
+          errorMessage: data.errorMessage,
+        });
+
+        if (data.status === "COMPLETED" || data.status === "FAILED") {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    };
+  }, []);
+
+  const handleReset = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setPost({
+      id: null,
+      status: "IDLE",
+      title: null,
+      content: null,
+      images: [],
+    });
+    setProgress(0);
+    setGuideText("");
+    setUploadedImages([]);
+  };
+
+  return {
+    session,
+    isAuthLoading,
+    authMode,
+    setAuthMode,
+    authEmail,
+    setAuthEmail,
+    authPassword,
+    setAuthPassword,
+    authMessage,
+    setAuthMessage,
+    isTokenModalOpen,
+    setIsTokenModalOpen,
+    isSdkModalOpen,
+    setIsSdkModalOpen,
+    apiKeys,
+    setApiKeys,
+    savedKeysStatus,
+    isKeysLoading,
+    category,
+    setCategory,
+    model,
+    setModel,
+    guideText,
+    setGuideText,
+    uploadedImages,
+    setUploadedImages,
+    post,
+    progress,
+    handleSignUp,
+    handleLogin,
+    handleLogout,
+    handleSaveKeys,
+    handleImageUpload,
+    handleGenerate,
+    handleReset,
+  };
+}
