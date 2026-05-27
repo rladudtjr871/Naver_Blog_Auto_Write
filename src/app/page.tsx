@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 
 // API Key status
 type ApiKeysState = {
@@ -19,6 +20,15 @@ type PostState = {
 };
 
 export default function Home() {
+  // Authentication states
+  const [session, setSession] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeysState>({ openai: "", gemini: "" });
@@ -43,14 +53,40 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch API Key status from Backend on mount
+  // 1. Session initialization and tracking
   useEffect(() => {
-    fetchKeysStatus();
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // 2. Fetch keys when session is established
+  useEffect(() => {
+    if (session) {
+      fetchKeysStatus();
+    }
+  }, [session]);
+
   const fetchKeysStatus = async () => {
+    if (!session?.access_token) return;
     try {
-      const res = await fetch("/api/user/keys");
+      const res = await fetch("/api/user/keys", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         const hasOpenAi = data.some((k: any) => k.provider === "OPENAI" && k.hasKey);
@@ -65,24 +101,91 @@ export default function Home() {
     }
   };
 
+  // Auth Action Handlers
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthMessage("");
+    if (!authEmail || !authPassword) {
+      setAuthMessage("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    setIsAuthLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) throw error;
+      if (data.session) {
+        setSession(data.session);
+        setAuthMessage("회원가입이 완료되었습니다!");
+      } else {
+        setAuthMessage("가입 확인 이메일이 발송되었습니다. 이메일 링크를 확인해주세요!");
+      }
+    } catch (err: any) {
+      setAuthMessage(err.message || "회원가입 중 오류가 발생했습니다.");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthMessage("");
+    if (!authEmail || !authPassword) {
+      setAuthMessage("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    setIsAuthLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) throw error;
+      if (data.session) {
+        setSession(data.session);
+      }
+    } catch (err: any) {
+      setAuthMessage(err.message || "로그인 중 오류가 발생했습니다.");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    handleReset();
+  };
+
   // Save API keys to backend
   const handleSaveKeys = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!session?.access_token) return;
     setIsKeysLoading(true);
     try {
       if (apiKeys.openai) {
-        await fetch("/api/user/keys", {
+        const res = await fetch("/api/user/keys", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
           body: JSON.stringify({ provider: "OPENAI", apiKey: apiKeys.openai }),
         });
+        if (!res.ok) throw new Error("OpenAI Key save failed");
       }
       if (apiKeys.gemini) {
-        await fetch("/api/user/keys", {
+        const res = await fetch("/api/user/keys", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
           body: JSON.stringify({ provider: "GEMINI", apiKey: apiKeys.gemini }),
         });
+        if (!res.ok) throw new Error("Gemini Key save failed");
       }
       await fetchKeysStatus();
       setApiKeys({ openai: "", gemini: "" });
@@ -106,7 +209,7 @@ export default function Home() {
   // Start generation
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guideText.trim()) return;
+    if (!guideText.trim() || !session?.access_token) return;
 
     setProgress(10);
     setPost({
@@ -120,7 +223,10 @@ export default function Home() {
     try {
       const res = await fetch("/api/posts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           guideText: `[카테고리: ${category}] ${guideText}`,
           images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
@@ -161,13 +267,18 @@ export default function Home() {
   // Poll server for post completion
   const startPolling = (postId: string) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    if (!session?.access_token) return;
     
     let pollCount = 0;
     
     pollingIntervalRef.current = setInterval(async () => {
       pollCount++;
       try {
-        const res = await fetch(`/api/posts/${postId}`);
+        const res = await fetch(`/api/posts/${postId}`, {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
         if (!res.ok) throw new Error("Status query failed");
 
         const data = await res.json();
@@ -224,6 +335,102 @@ export default function Home() {
     setUploadedImages([]);
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f6f7]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#03c75a]/20 border-t-[#03c75a] rounded-full animate-spin" />
+          <p className="text-xs text-[#777] font-bold">인증 상태를 확인하고 있습니다...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f6f7] p-4 font-sans text-[#1e1e1e]">
+        <div className="w-full max-w-[400px] bg-white border border-[#e4e8eb] rounded-2xl p-8 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-12 h-12 rounded-xl bg-[#03c75a] flex items-center justify-center shadow-sm">
+              <span className="text-white font-black text-2xl tracking-tighter">B</span>
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e] mt-2">
+              블로그<span className="text-[#03c75a]">AutoWrite</span>
+            </h1>
+            <p className="text-[10px] text-[#777] tracking-wider uppercase font-mono">Naver Blog Auto-Write AI System</p>
+          </div>
+
+          <form onSubmit={authMode === "login" ? handleLogin : handleSignUp} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs font-bold text-[#333] mb-1.5">이메일 주소</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="example@email.com"
+                required
+                className="w-full bg-white border border-[#ccd2d6] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#333] mb-1.5">비밀번호</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full bg-white border border-[#ccd2d6] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all"
+              />
+            </div>
+
+            {authMessage && (
+              <p className={`text-xs p-3 rounded-lg border text-center ${
+                authMessage.includes("성공") || authMessage.includes("완료") 
+                  ? "bg-green-50 text-green-600 border-green-100" 
+                  : "bg-red-50 text-red-600 border-red-100"
+              }`}>
+                {authMessage}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3.5 rounded-lg shadow-sm transition-all text-center cursor-pointer"
+            >
+              {authMode === "login" ? "로그인" : "회원가입"}
+            </button>
+          </form>
+
+          <div className="text-center text-xs text-[#777]">
+            {authMode === "login" ? (
+              <p>
+                계정이 없으신가요?{" "}
+                <button
+                  onClick={() => { setAuthMode("signup"); setAuthMessage(""); }}
+                  className="text-[#03c75a] font-bold underline cursor-pointer"
+                >
+                  회원가입 하기
+                </button>
+              </p>
+            ) : (
+              <p>
+                이미 계정이 있으신가요?{" "}
+                <button
+                  onClick={() => { setAuthMode("login"); setAuthMessage(""); }}
+                  className="text-[#03c75a] font-bold underline cursor-pointer"
+                >
+                  로그인 하기
+                </button>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-screen text-[#1e1e1e] bg-[#f5f6f7] font-sans">
       
@@ -247,6 +454,19 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* User Info & Logout */}
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-xs text-[#555] font-bold">{session.user?.email}</span>
+              <button
+                onClick={handleLogout}
+                className="text-[10px] text-gray-400 hover:text-red-500 hover:underline transition-colors cursor-pointer"
+              >
+                로그아웃
+              </button>
+            </div>
+
+            <span className="w-px h-4 bg-[#e4e8eb]" />
+
             {/* Key Status Indicators */}
             <div className="hidden sm:flex items-center gap-3 text-xs bg-[#f8f9fa] border border-[#e4e8eb] px-3 py-1.5 rounded-lg">
               <span className="flex items-center gap-1.5 text-[#333]">
@@ -261,8 +481,18 @@ export default function Home() {
             </div>
 
             <button
+              onClick={() => setIsTokenModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#ccd2d6] hover:border-gray-400 rounded-lg text-xs font-bold text-gray-600 transition-all shadow-sm cursor-pointer"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              </svg>
+              익스텐션 연동
+            </button>
+
+            <button
               onClick={() => setIsSdkModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#03c75a]/30 hover:border-[#03c75a] rounded-lg text-xs font-bold text-[#03c75a] transition-all hover:bg-[#03c75a]/5 shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#03c75a]/30 hover:border-[#03c75a] rounded-lg text-xs font-bold text-[#03c75a] transition-all hover:bg-[#03c75a]/5 shadow-sm cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -321,7 +551,7 @@ export default function Home() {
                     type="button"
                     onClick={() => setModel("OPENAI")}
                     disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 ${
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 cursor-pointer ${
                       model === "OPENAI"
                         ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                         : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
@@ -333,7 +563,7 @@ export default function Home() {
                     type="button"
                     onClick={() => setModel("GEMINI")}
                     disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 ${
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 cursor-pointer ${
                       model === "GEMINI"
                         ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                         : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
@@ -387,7 +617,7 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => setUploadedImages((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-red-400"
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-red-400 cursor-pointer"
                           >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -405,14 +635,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-xs font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center"
+                  className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-xs font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer"
                 >
                   초기화
                 </button>
                 <button
                   type="submit"
                   disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !guideText.trim()}
-                  className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 glow-btn"
+                  className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 glow-btn cursor-pointer"
                 >
                   AI 블로그 자동 생성
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -548,7 +778,7 @@ export default function Home() {
                             alert("포스트 ID가 클립보드에 복사되었습니다.");
                           }
                         }}
-                        className="p-2 bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] rounded-lg transition-colors shadow-sm"
+                        className="p-2 bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] rounded-lg transition-colors shadow-sm cursor-pointer"
                         title="ID 복사"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -580,7 +810,7 @@ export default function Home() {
               </h3>
               <button
                 onClick={() => setIsSdkModalOpen(false)}
-                className="text-[#999] hover:text-[#555] transition-colors"
+                className="text-[#999] hover:text-[#555] transition-colors cursor-pointer"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -619,14 +849,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsSdkModalOpen(false)}
-                  className="flex-1 bg-slate-950 border border-white/5 hover:bg-slate-900 text-xs font-semibold py-3 rounded-xl text-slate-400 hover:text-slate-200 transition-colors"
+                  className="flex-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-xs font-bold py-3 rounded-lg text-[#555] transition-all cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={isKeysLoading}
-                  className="flex-1 bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-indigo-500/10 glow-btn"
+                  className="flex-1 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3 rounded-lg transition-all shadow-sm cursor-pointer"
                 >
                   {isKeysLoading ? "저장 중..." : "저장 및 활성화"}
                 </button>
@@ -635,6 +865,66 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Extension Token Modal */}
+      {isTokenModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-filter backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="naver-panel w-full max-w-md rounded-2xl p-6 flex flex-col gap-4 bg-white">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#1e1e1e] flex items-center gap-2">
+                <span className="w-1 h-3.5 bg-[#03c75a] rounded-full inline-block" />
+                크롬 익스텐션 연동 토큰
+              </h3>
+              <button
+                onClick={() => setIsTokenModalOpen(false)}
+                className="text-[#999] hover:text-[#555] transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-xs text-[#666] leading-normal bg-gray-50 border border-gray-100 p-3 rounded-lg">
+              크롬 익스텐션에서 포스트 정보를 조회하기 위해서는 아래의 보안 인증 토큰(JWT)을 기입해야 합니다. 버튼을 눌러 복사한 뒤 익스텐션 팝업에 붙여넣어 주세요.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <label className="block text-xs font-bold text-[#333]">서버 액세스 토큰 (JWT)</label>
+              <textarea
+                readOnly
+                value={session?.access_token || ""}
+                rows={5}
+                className="w-full bg-[#f8f9fa] border border-[#ccd2d6] rounded-lg p-2.5 text-[10px] text-[#555] outline-none font-mono resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setIsTokenModalOpen(false)}
+                className="flex-1 bg-white hover:bg-gray-50 border border-[#ccd2d6] text-xs font-bold py-3 rounded-lg text-[#555] transition-all cursor-pointer"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (session?.access_token) {
+                    navigator.clipboard.writeText(session.access_token);
+                    alert("인증 토큰이 클립보드에 복사되었습니다. 크롬 익스텐션에 붙여넣어 연동하세요!");
+                    setIsTokenModalOpen(false);
+                  }
+                }}
+                className="flex-1 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3 rounded-lg transition-all shadow-sm cursor-pointer"
+              >
+                토큰 복사하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

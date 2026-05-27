@@ -1,38 +1,12 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { generateBlogContent } from "@/lib/generator";
-
-const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
-
-async function ensureDemoUser() {
-  const { data: user, error } = await supabase
-    .from("User")
-    .select("id")
-    .eq("id", DEMO_USER_ID)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error checking demo user:", error);
-    throw error;
-  }
-
-  if (!user) {
-    const { error: insertError } = await supabase
-      .from("User")
-      .insert({
-        id: DEMO_USER_ID,
-        email: "demo@blogautowrite.com",
-      });
-
-    if (insertError) {
-      console.error("Error creating demo user:", insertError);
-      throw insertError;
-    }
-  }
-}
+import { getAuthUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const user = await getAuthUser(request);
+
     const body = await request.json();
     const { guideText, images, model } = body;
 
@@ -42,13 +16,11 @@ export async function POST(request: Request) {
 
     const aiModel = model || "OPENAI";
 
-    await ensureDemoUser();
-
     // 1. Create BlogPost record (PENDING)
-    const { data: blogPost, error: postError } = await supabase
+    const { data: blogPost, error: postError } = await supabaseAdmin
       .from("BlogPost")
       .insert({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         status: "PENDING",
       })
       .select()
@@ -59,10 +31,10 @@ export async function POST(request: Request) {
     }
 
     // 2. Create ReferencePost record link
-    const { error: refError } = await supabase
+    const { error: refError } = await supabaseAdmin
       .from("ReferencePost")
       .insert({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         blogPostId: blogPost.id,
         content: guideText,
       });
@@ -79,7 +51,7 @@ export async function POST(request: Request) {
         role: (typeof img === "object" && img.role) ? img.role : "INCLUDED",
       }));
 
-      const { error: imgError } = await supabase
+      const { error: imgError } = await supabaseAdmin
         .from("Image")
         .insert(imageData);
 
@@ -100,18 +72,19 @@ export async function POST(request: Request) {
     );
   } catch (error: any) {
     console.error("Create Blog Post error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    const status = error.message?.includes("Unauthorized") || error.message?.includes("Missing") ? 401 : 500;
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status });
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    await ensureDemoUser();
+    const user = await getAuthUser(request);
 
-    const { data: posts, error } = await supabase
+    const { data: posts, error } = await supabaseAdmin
       .from("BlogPost")
       .select("*, images:Image(*)")
-      .eq("userId", DEMO_USER_ID)
+      .eq("userId", user.id)
       .order("createdAt", { ascending: false });
 
     if (error) {
@@ -121,6 +94,7 @@ export async function GET() {
     return NextResponse.json(posts);
   } catch (error: any) {
     console.error("Fetch blog posts error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    const status = error.message?.includes("Unauthorized") || error.message?.includes("Missing") ? 401 : 500;
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status });
   }
 }

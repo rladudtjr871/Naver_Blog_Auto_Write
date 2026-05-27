@@ -1,39 +1,12 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { encrypt } from "@/lib/crypto";
-
-// Fallback user ID for demo purposes without complex auth integration
-const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
-
-async function ensureDemoUser() {
-  const { data: user, error } = await supabase
-    .from("User")
-    .select("id")
-    .eq("id", DEMO_USER_ID)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error checking demo user:", error);
-    throw error;
-  }
-
-  if (!user) {
-    const { error: insertError } = await supabase
-      .from("User")
-      .insert({
-        id: DEMO_USER_ID,
-        email: "demo@blogautowrite.com",
-      });
-
-    if (insertError) {
-      console.error("Error creating demo user:", insertError);
-      throw insertError;
-    }
-  }
-}
+import { getAuthUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const user = await getAuthUser(request);
+
     const body = await request.json();
     const { provider, apiKey } = body;
 
@@ -46,17 +19,14 @@ export async function POST(request: Request) {
 
     const upperProvider = provider.toUpperCase();
 
-    // Ensure demo user exists in DB first
-    await ensureDemoUser();
-
     // Encrypt the key safely (Secure Mode)
     const encryptedKey = encrypt(apiKey);
 
     // Upsert key (conflict on unique userId & provider)
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await supabaseAdmin
       .from("ApiKey")
       .upsert({
-        userId: DEMO_USER_ID,
+        userId: user.id,
         provider: upperProvider,
         encryptedKey: encryptedKey,
         updatedAt: new Date().toISOString(),
@@ -69,18 +39,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: "API Key registered successfully" });
   } catch (error: any) {
     console.error("API Key registration error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    const status = error.message?.includes("Unauthorized") || error.message?.includes("Missing") ? 401 : 500;
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status });
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    await ensureDemoUser();
+    const user = await getAuthUser(request);
 
-    const { data: keys, error } = await supabase
+    const { data: keys, error } = await supabaseAdmin
       .from("ApiKey")
       .select("provider, updatedAt")
-      .eq("userId", DEMO_USER_ID);
+      .eq("userId", user.id);
 
     if (error) {
       throw error;
@@ -96,6 +67,7 @@ export async function GET() {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Fetch API Keys error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    const status = error.message?.includes("Unauthorized") || error.message?.includes("Missing") ? 401 : 500;
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status });
   }
 }

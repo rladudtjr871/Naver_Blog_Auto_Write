@@ -1,28 +1,38 @@
-import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase";
 import { decrypt } from "./crypto";
 import { OpenAI } from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
-
 /**
- * Background worker to generate blog content using AI APIs and Supabase SDK
+ * Background worker to generate blog content using AI APIs and Supabase Admin SDK
  */
 export async function generateBlogContent(postId: string, provider: string, guideText: string) {
   try {
-    // 1. Update status to PROCESSING
-    const { error: statusErr } = await supabase
+    // 1. Fetch user ID associated with this post using supabaseAdmin
+    const { data: post, error: postErr } = await supabaseAdmin
+      .from("BlogPost")
+      .select("userId")
+      .eq("id", postId)
+      .single();
+
+    if (postErr || !post) {
+      throw postErr || new Error("BlogPost not found");
+    }
+    const userId = post.userId;
+
+    // 2. Update status to PROCESSING
+    const { error: statusErr } = await supabaseAdmin
       .from("BlogPost")
       .update({ status: "PROCESSING", updatedAt: new Date().toISOString() })
       .eq("id", postId);
 
     if (statusErr) throw statusErr;
 
-    // 2. Fetch user API key for target provider
-    const { data: apiKeyRecord, error: keyErr } = await supabase
+    // 3. Fetch user API key for target provider
+    const { data: apiKeyRecord, error: keyErr } = await supabaseAdmin
       .from("ApiKey")
       .select("encryptedKey")
-      .eq("userId", DEMO_USER_ID)
+      .eq("userId", userId)
       .eq("provider", provider.toUpperCase())
       .maybeSingle();
 
@@ -32,7 +42,7 @@ export async function generateBlogContent(postId: string, provider: string, guid
       throw new Error(`API Key for ${provider} has not been registered.`);
     }
 
-    // 3. Decrypt the key safely
+    // 4. Decrypt the key safely
     const apiKey = decrypt(apiKeyRecord.encryptedKey);
 
     let generatedTitle = "";
@@ -88,8 +98,8 @@ export async function generateBlogContent(postId: string, provider: string, guid
       throw new Error("AI generated empty content. Parse failed.");
     }
 
-    // 4. Save generated content back to Supabase
-    const { error: saveErr } = await supabase
+    // 5. Save generated content back to Supabase
+    const { error: saveErr } = await supabaseAdmin
       .from("BlogPost")
       .update({
         title: generatedTitle,
@@ -103,7 +113,7 @@ export async function generateBlogContent(postId: string, provider: string, guid
 
   } catch (error: any) {
     console.error(`AI Generation failure for post ${postId}:`, error);
-    await supabase
+    await supabaseAdmin
       .from("BlogPost")
       .update({
         status: "FAILED",

@@ -199,6 +199,13 @@
       <label for="postId">포스트 ID (UUID)</label>
       <input type="text" id="postId" placeholder="생성된 포스트 ID 입력">
     </div>
+    <div class="form-group" style="margin-top: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label for="accessToken" style="margin-bottom: 0;">액세스 토큰 (JWT)</label>
+        <span id="syncStatus" style="font-size: 9px; color: #ff4d4f; font-weight: bold;">연동 안 됨</span>
+      </div>
+      <input type="password" id="accessToken" placeholder="대시보드 로그인 시 자동 동기화됨">
+    </div>
     <div class="form-group" style="margin-top: 12px;">
       <button id="fetchBtn">데이터 불러오기</button>
     </div>

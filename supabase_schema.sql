@@ -73,12 +73,40 @@ ALTER TABLE "BlogPost" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "ReferencePost" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Image" ENABLE ROW LEVEL SECURITY;
 
--- 2. 모든 테이블에 대해 Anon Key/공유 접근 권한 허용 정책 생성
-CREATE POLICY "Allow public access to User" ON "User" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access to ApiKey" ON "ApiKey" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access to BlogPost" ON "BlogPost" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access to ReferencePost" ON "ReferencePost" FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access to Image" ON "Image" FOR ALL USING (true) WITH CHECK (true);
+-- 2. User 테이블: 로그인한 회원 본인의 프로필 정보만 CRUD 가능
+CREATE POLICY "Users can manage their own profile" ON "User"
+    FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- 3. ApiKey 테이블: 본인의 API 키 정보만 CRUD 가능 (핵심 보안 사항)
+CREATE POLICY "Users can manage their own API keys" ON "ApiKey"
+    FOR ALL USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
+
+-- 4. BlogPost 테이블: 본인이 생성한 블로그 포스팅만 CRUD 가능
+CREATE POLICY "Users can manage their own BlogPosts" ON "BlogPost"
+    FOR ALL USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
+
+-- 5. ReferencePost 테이블: 본인의 참조 대상 정보만 CRUD 가능
+CREATE POLICY "Users can manage their own ReferencePosts" ON "ReferencePost"
+    FOR ALL USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
+
+-- 6. Image 테이블: 본인의 BlogPost 하위에 바인딩된 이미지에 한해서만 CRUD 가능
+CREATE POLICY "Users can manage images in their own BlogPosts" ON "Image"
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM "BlogPost"
+            WHERE "BlogPost".id = "Image"."blogPostId"
+            AND "BlogPost"."userId" = auth.uid()
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM "BlogPost"
+            WHERE "BlogPost".id = "Image"."blogPostId"
+            AND "BlogPost"."userId" = auth.uid()
+        )
+    );
+
 
 
 /*
@@ -130,4 +158,27 @@ CREATE POLICY "Users can manage images in their own BlogPosts" ON "Image"
         )
     );
 */
+
+
+-- =========================================================================
+-- [추가] Supabase Auth 회원가입 시 public."User" 테이블 자동 연동 트리거 DDL
+-- =========================================================================
+
+-- 1. 트리거 함수 정의
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public."User" (id, email, "createdAt", "updatedAt")
+    VALUES (new.id, new.email, COALESCE(new.created_at, now()), now())
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. 트리거 설정
+CREATE OR REPLACE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
+
 

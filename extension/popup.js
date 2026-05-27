@@ -4,6 +4,8 @@ let fetchedPostData = null;
 document.addEventListener("DOMContentLoaded", async () => {
   const serverUrlInput = document.getElementById("serverUrl");
   const postIdInput = document.getElementById("postId");
+  const accessTokenInput = document.getElementById("accessToken");
+  const syncStatusSpan = document.getElementById("syncStatus");
   const fetchBtn = document.getElementById("fetchBtn");
   const injectBtn = document.getElementById("injectBtn");
   const statusSection = document.getElementById("statusSection");
@@ -11,34 +13,143 @@ document.addEventListener("DOMContentLoaded", async () => {
   const imageCountSpan = document.getElementById("imageCount");
   const textLengthSpan = document.getElementById("textLength");
 
-  // 1. Load saved settings from Chrome Storage
-  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["serverUrl", "postId"], (result) => {
-      if (result.serverUrl) serverUrlInput.value = result.serverUrl;
-      if (result.postId) postIdInput.value = result.postId;
+  // 1. Helper to update sync status style & text
+  function updateSyncStatus(isSynced, message) {
+    if (!syncStatusSpan) return;
+    syncStatusSpan.textContent = message;
+    if (isSynced) {
+      syncStatusSpan.style.color = "#03c75a"; // Green
+    } else {
+      syncStatusSpan.style.color = "#ff4d4f"; // Red
+    }
+  }
+
+  // 2. Helper to sync token from the Next.js site localStorage
+  async function syncTokenFromTab() {
+    if (typeof chrome === "undefined" || !chrome.tabs || !chrome.scripting) {
+      updateSyncStatus(false, "개발자 모드");
+      return;
+    }
+
+    const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
+    if (!serverUrl) return;
+
+    const matchPattern = serverUrl + "/*";
+
+    chrome.tabs.query({ url: matchPattern }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        console.warn("Tabs query error:", chrome.runtime.lastError);
+        return;
+      }
+
+      if (!tabs || tabs.length === 0) {
+        updateSyncStatus(false, "대시보드 탭 없음");
+        return;
+      }
+
+      const targetTab = tabs[0];
+      chrome.scripting.executeScript({
+        target: { tabId: targetTab.id },
+        func: () => {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+              try {
+                const sessionData = JSON.parse(localStorage.getItem(key));
+                if (sessionData && sessionData.access_token) {
+                  return sessionData.access_token;
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+          return null;
+        }
+      }, (results) => {
+        if (chrome.runtime.lastError) {
+          console.warn("Execute script error:", chrome.runtime.lastError);
+          // If we can't execute script (e.g. host permission issue), we keep existing token
+          return;
+        }
+
+        if (results && results[0] && results[0].result) {
+          const token = results[0].result;
+          accessTokenInput.value = token;
+          updateSyncStatus(true, "자동 동기화됨");
+          chrome.storage.local.set({ accessToken: token });
+        } else {
+          // If tab exists but no token is found, user might be logged out
+          updateSyncStatus(false, "로그인 필요");
+        }
+      });
     });
   }
 
-  // 2. Fetch post data from backend API
+  // 3. Load saved settings from Chrome Storage
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(["serverUrl", "postId", "accessToken"], (result) => {
+      if (result.serverUrl) serverUrlInput.value = result.serverUrl;
+      if (result.postId) postIdInput.value = result.postId;
+      if (result.accessToken) {
+        accessTokenInput.value = result.accessToken;
+        updateSyncStatus(true, "저장됨");
+      }
+
+      // Auto-sync token once config is loaded
+      syncTokenFromTab();
+    });
+  }
+
+  // 4. Save manual token changes
+  accessTokenInput.addEventListener("input", () => {
+    const token = accessTokenInput.value.trim();
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ accessToken: token });
+    }
+    if (token) {
+      updateSyncStatus(true, "수동 입력됨");
+    } else {
+      updateSyncStatus(false, "연동 안 됨");
+    }
+  });
+
+  // Re-sync when server URL is edited
+  serverUrlInput.addEventListener("change", () => {
+    syncTokenFromTab();
+  });
+
+  // 5. Fetch post data from backend API
   fetchBtn.addEventListener("click", async () => {
     const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
     const postId = postIdInput.value.trim();
+    const token = accessTokenInput.value.trim();
 
     if (!serverUrl || !postId) {
       alert("서버 URL과 포스트 ID를 입력하세요.");
       return;
     }
 
+    if (!token) {
+      alert("액세스 토큰이 필요합니다. 대시보드 로그인 상태이거나 토큰을 직접 입력해 주세요.");
+      return;
+    }
+
     // Save configuration
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ serverUrl, postId });
+      chrome.storage.local.set({ serverUrl, postId, accessToken: token });
     }
 
     fetchBtn.textContent = "불러오는 중...";
     fetchBtn.disabled = true;
 
     try {
-      const response = await fetch(`${serverUrl}/api/posts/${postId}`);
+      const response = await fetch(`${serverUrl}/api/posts/${postId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
       if (!response.ok) {
         throw new Error(`서버 응답 오류 (HTTP ${response.status})`);
       }
@@ -46,7 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await response.json();
       
       if (data.status !== "COMPLETED") {
-        alert(`포스트가 아직 준비되지 않았습니다. (현재 상태: ${data.status})`);
+        alert(`포스트가 아직 완료되지 않았습니다. (현재 상태: ${data.status})`);
         resetStatusPanel();
         return;
       }
@@ -68,7 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // 3. Trigger injection in current active tab
+  // 6. Trigger injection in current active tab
   injectBtn.addEventListener("click", async () => {
     if (!fetchedPostData) return;
 
@@ -77,15 +188,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Get current active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
     if (!tab) {
       alert("활성화된 탭을 찾을 수 없습니다.");
       return;
     }
 
-    // Double check URL pattern
     const isNaverBlog = tab.url && (
       tab.url.includes("blog.naver.com") || 
       tab.url.includes("editor.blog.naver.com")
@@ -99,7 +207,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     injectBtn.textContent = "네이버 주입 요청 중...";
     injectBtn.disabled = true;
 
-    // Send post data message to content script (content.js)
     chrome.tabs.sendMessage(tab.id, { 
       action: "INJECT_POST", 
       data: {
@@ -133,3 +240,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     fetchBtn.disabled = false;
   }
 });
+
