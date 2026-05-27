@@ -66,12 +66,12 @@ export async function generateBlogContent(postId: string, provider: string, guid
 제시된 주제와 이미지를 참고하고, 예시 블로그들의 스타일을 벤치마킹하여 고품질의 블로그 포스팅 글을 작성해야 합니다.
 블로그 글은 다음 규격을 엄격히 지켜야 합니다:
 1. 반드시 제목(Title)과 본문(Body)을 분리하여 작성할 것.
-2. 결과물 포맷은 최상단에 [TITLE] 태그로 제목을 한 줄 작성하고, 그 다음 라인부터 [BODY] 태그를 붙인 뒤 본문 마크다운 내용을 채울 것.
+2. 결과물 포맷은 최상단에 [TITLE] 태그로 제목을 한 줄 작성하고, 그 다음 라인부터 [BODY] 태그를 붙인 뒤 본문 내용을 채울 것.
    예:
    [TITLE] 제주도 인생 흑돼지 맛집 탐방기
-   [BODY] ## 서론... \n\n 맛집을 다녀왔습니다...
+   [BODY] [ 1. 서론 ]\n\n맛집을 다녀왔습니다...
 3. 친근하고 유익한 구어체 한글(~합니다, ~했답니다, ~요 등)을 사용할 것.
-4. 네이버 스마트에디터 ONE에 직접 타이핑될 예정이므로 가독성을 위해 단락을 자주 나누고, 소제목(##, ###)과 적절한 이모지를 적극적으로 활용하여 예쁘게 작성할 것.
+4. 네이버 스마트에디터 ONE에 직접 타이핑될 예정이므로 가독성을 위해 단락을 자주 나누고, 마크다운 기호(##, **, *, _, \` 등)를 절대로 사용하지 마십시오. 소제목은 이모지와 줄 바꿈을 활용하여 자연스럽게 구분 지어 작성해야 합니다. (예: "📌 1. 소제목" 또는 "[ 소제목 ]" 형태로 한 줄을 작성하고 전후로 빈 줄을 둡니다.)
 5. 함께 제공되는 이미지가 있다면 이미지 속 시각적 정보(분위기, 상품 상태, 색상, 장소 등)를 매우 세부적으로 관찰하여 본문 내용에 자연스럽게 묘사해 줄 것.`;
 
     let userPrompt = `작성할 블로그 주제:
@@ -212,7 +212,31 @@ function parseAiResponse(rawText: string): { title: string; content: string } {
     content = rawText.replace(/\[TITLE\]\s*(.*)/i, "").trim();
   }
 
+  // Strip any accidental markdown formatting characters to clean up for Naver Blog Editor
+  title = cleanMarkdown(title);
+  content = cleanMarkdown(content);
+
   return { title, content };
+}
+
+/**
+ * Strips markdown symbols to make text clean for Naver Blog Editor
+ */
+function cleanMarkdown(text: string): string {
+  return text
+    // 1. Remove heading marks like #, ##, ### at the start of lines
+    .replace(/^(#+)\s+/gm, "")
+    // 2. Remove bold/italic markers like **, *, __, _
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    // 3. Remove inline code backticks
+    .replace(/`([^`]+)`/g, "$1")
+    // 4. Remove markdown links [Text](URL) -> Text
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    // 5. Remove horizontal rule lines like --- or ===
+    .replace(/^[=\-*]{3,}$/gm, "");
 }
 
 /**
