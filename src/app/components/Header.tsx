@@ -20,7 +20,7 @@ export function Header(props: HeaderProps) {
         </div>
         <div>
           <h1 className="text-sm font-bold text-[#1e1e1e] leading-tight">
-            블로그<span className="text-[#03c75a]">AutoWrite</span>
+            블로그 <span className="text-[#03c75a]">AutoWrite</span>
           </h1>
           <p className="text-[8px] text-[#777] font-mono tracking-wider">Dashboard</p>
         </div>
@@ -31,7 +31,7 @@ export function Header(props: HeaderProps) {
           <span className="w-1.5 h-1.5 bg-[#03c75a] rounded-full animate-pulse" />
           {session?.user?.email}
         </span>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsSdkModalOpen(true)}
