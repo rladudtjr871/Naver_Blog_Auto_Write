@@ -200,7 +200,7 @@ export function GenerationForm(props: GenerationFormProps) {
                 setReferences(newRefs);
               }}
               disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
-              placeholder={`예시 블로그 ${activeExampleTab + 1}의 본문 글을 입력하거나, 학습할 네이버 블로그 링크(URL)를 복사해서 붙여넣어 주세요.`}
+              placeholder={`예시 블로그 ${activeExampleTab + 1}의 본문 글을 복사해서 붙여넣어 주세요.`}
               rows={5}
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-xs text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all resize-none placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
             />
