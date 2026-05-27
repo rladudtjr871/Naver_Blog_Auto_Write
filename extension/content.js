@@ -136,10 +136,40 @@ function findEditableElement(selectorString) {
       if (editableChild) {
         return editableChild;
       }
-      return el;
+      // Do not return el if it is not editable!
     }
   }
   return null;
+}
+
+/**
+ * Focuses and sets the cursor at the end of the editable element,
+ * simulating clicking the wrapper element first to trigger react state if needed.
+ */
+async function focusAndSetCursor(element, selectorString) {
+  if (selectorString) {
+    const wrapper = document.querySelector(selectorString.split(",")[0]);
+    if (wrapper && wrapper !== element) {
+      wrapper.click();
+      await sleep(100);
+    }
+  }
+  
+  element.focus();
+  element.click();
+  
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false); // position cursor at the end
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } catch (e) {
+    console.warn("Failed to set cursor range:", e);
+  }
+  
+  await sleep(100);
 }
 
 /**
@@ -175,9 +205,7 @@ async function injectBlogContent(title, content, images) {
     throw new Error("네이버 블로그 에디터 제목 영역을 찾을 수 없습니다. 에디터 모드인지 확인해 주세요.");
   }
   
-  titleEl.focus();
-  titleEl.click();
-  await sleep(100);
+  await focusAndSetCursor(titleEl, selectors.title_input);
 
   // Clear any existing placeholder or content
   document.execCommand("selectAll", false, null);
@@ -200,9 +228,7 @@ async function injectBlogContent(title, content, images) {
     throw new Error("네이버 블로그 에디터 본문 영역을 찾을 수 없습니다.");
   }
   
-  contentEl.focus();
-  contentEl.click();
-  await sleep(100);
+  await focusAndSetCursor(contentEl, selectors.content_editable);
 
   // 3. Split content into paragraphs to inject them naturally
   const paragraphs = content.split("\n");
@@ -223,6 +249,9 @@ async function injectBlogContent(title, content, images) {
     
     // Trigger Enter key (newline) to create a new editor paragraph block
     if (i < paragraphs.length - 1) {
+      const activeEl = document.activeElement;
+      const targetEl = (activeEl && activeEl.getAttribute("contenteditable") === "true") ? activeEl : contentEl;
+      
       const enterEvent = new KeyboardEvent("keydown", {
         key: "Enter",
         code: "Enter",
@@ -231,7 +260,7 @@ async function injectBlogContent(title, content, images) {
         bubbles: true,
         cancelable: true
       });
-      contentEl.dispatchEvent(enterEvent);
+      targetEl.dispatchEvent(enterEvent);
       
       // Secondary fallback if keyboard event doesn't trigger block split
       document.execCommand("insertParagraph", false, null);
