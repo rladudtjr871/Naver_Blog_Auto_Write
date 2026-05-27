@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(
   request: Request,
@@ -12,12 +12,15 @@ export async function GET(
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 });
     }
 
-    const post = await prisma.blogPost.findUnique({
-      where: { id },
-      include: {
-        images: true,
-      },
-    });
+    const { data: post, error } = await supabase
+      .from("BlogPost")
+      .select("*, images:Image(*)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
 
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
@@ -29,13 +32,13 @@ export async function GET(
       title: post.title,
       content: post.content,
       errorMessage: post.errorMessage,
-      images: post.images.map((img: { id: string; url: string; role: string }) => ({
+      images: (post.images || []).map((img: any) => ({
         id: img.id,
         url: img.url,
         role: img.role,
       })),
-      createdAt: post.createdAt.toISOString(),
-      updatedAt: post.updatedAt.toISOString(),
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
     });
   } catch (error: any) {
     console.error("Fetch single post error:", error);

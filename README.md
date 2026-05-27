@@ -47,11 +47,10 @@ DIRECT_URL="postgresql://postgres.[your-project-id]:[password]@aws-0-ap-northeas
 ENCRYPTION_KEY="your-32-character-secret-key-goes-here"
 ```
 
-### 4. 데이터베이스 마이그레이션 적용
-Prisma 스키마를 Supabase DB 인스턴스에 적용하고 로컬 타입을 최신화합니다.
-```bash
-npx prisma db push
-```
+### 4. 데이터베이스 테이블 생성 (Supabase SQL Editor)
+1. 프로젝트 루트에 있는 [supabase_schema.sql](file:///c:/Users/yskim/Documents/blogAutoWrite/supabase_schema.sql) 파일의 내용을 전체 복사합니다.
+2. [Supabase Dashboard](https://supabase.com/dashboard) ➔ 프로젝트 선택 ➔ 좌측 메뉴의 **SQL Editor**로 이동합니다.
+3. **'New query'**를 눌러 새 쿼리창을 연 후, 복사한 내용을 붙여넣고 **'Run'** 버튼을 클릭하여 실행하면 테이블이 생성됩니다.
 
 ### 5. 웹 서비스 개발 서버 시작
 ```bash

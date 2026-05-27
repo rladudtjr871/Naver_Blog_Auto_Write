@@ -1,20 +1,33 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { generateBlogContent } from "@/lib/generator";
 
 const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 async function ensureDemoUser() {
-  const user = await prisma.user.findUnique({
-    where: { id: DEMO_USER_ID },
-  });
+  const { data: user, error } = await supabase
+    .from("User")
+    .select("id")
+    .eq("id", DEMO_USER_ID)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking demo user:", error);
+    throw error;
+  }
+
   if (!user) {
-    await prisma.user.create({
-      data: {
+    const { error: insertError } = await supabase
+      .from("User")
+      .insert({
         id: DEMO_USER_ID,
         email: "demo@blogautowrite.com",
-      },
-    });
+      });
+
+    if (insertError) {
+      console.error("Error creating demo user:", insertError);
+      throw insertError;
+    }
   }
 }
 
@@ -32,21 +45,31 @@ export async function POST(request: Request) {
     await ensureDemoUser();
 
     // 1. Create BlogPost record (PENDING)
-    const blogPost = await prisma.blogPost.create({
-      data: {
+    const { data: blogPost, error: postError } = await supabase
+      .from("BlogPost")
+      .insert({
         userId: DEMO_USER_ID,
         status: "PENDING",
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (postError || !blogPost) {
+      throw postError || new Error("Failed to create BlogPost");
+    }
 
     // 2. Create ReferencePost record link
-    await prisma.referencePost.create({
-      data: {
+    const { error: refError } = await supabase
+      .from("ReferencePost")
+      .insert({
         userId: DEMO_USER_ID,
         blogPostId: blogPost.id,
         content: guideText,
-      },
-    });
+      });
+
+    if (refError) {
+      throw refError;
+    }
 
     // 3. Create Image records if provided
     if (images && Array.isArray(images) && images.length > 0) {
@@ -56,13 +79,16 @@ export async function POST(request: Request) {
         role: (typeof img === "object" && img.role) ? img.role : "INCLUDED",
       }));
 
-      await prisma.image.createMany({
-        data: imageData,
-      });
+      const { error: imgError } = await supabase
+        .from("Image")
+        .insert(imageData);
+
+      if (imgError) {
+        throw imgError;
+      }
     }
 
-    // 4. Trigger AI Generation asynchronously (Vercel Serverless background execution)
-    // We intentionally DO NOT await this promise to return response instantly (within 10s)
+    // 4. Trigger AI Generation asynchronously
     generateBlogContent(blogPost.id, aiModel, guideText).catch((err) => {
       console.error("Asynchronous generation background trigger failed:", err);
     });
@@ -82,15 +108,15 @@ export async function GET() {
   try {
     await ensureDemoUser();
 
-    const posts = await prisma.blogPost.findMany({
-      where: { userId: DEMO_USER_ID },
-      include: {
-        images: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const { data: posts, error } = await supabase
+      .from("BlogPost")
+      .select("*, images:Image(*)")
+      .eq("userId", DEMO_USER_ID)
+      .order("createdAt", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json(posts);
   } catch (error: any) {

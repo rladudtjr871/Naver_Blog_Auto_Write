@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { supabase } from "./supabase";
 import { decrypt } from "./crypto";
 import { OpenAI } from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -6,25 +6,27 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 /**
- * Background worker to generate blog content using AI APIs
+ * Background worker to generate blog content using AI APIs and Supabase SDK
  */
 export async function generateBlogContent(postId: string, provider: string, guideText: string) {
   try {
     // 1. Update status to PROCESSING
-    await prisma.blogPost.update({
-      where: { id: postId },
-      data: { status: "PROCESSING" },
-    });
+    const { error: statusErr } = await supabase
+      .from("BlogPost")
+      .update({ status: "PROCESSING", updatedAt: new Date().toISOString() })
+      .eq("id", postId);
+
+    if (statusErr) throw statusErr;
 
     // 2. Fetch user API key for target provider
-    const apiKeyRecord = await prisma.apiKey.findUnique({
-      where: {
-        userId_provider: {
-          userId: DEMO_USER_ID,
-          provider: provider.toUpperCase(),
-        },
-      },
-    });
+    const { data: apiKeyRecord, error: keyErr } = await supabase
+      .from("ApiKey")
+      .select("encryptedKey")
+      .eq("userId", DEMO_USER_ID)
+      .eq("provider", provider.toUpperCase())
+      .maybeSingle();
+
+    if (keyErr) throw keyErr;
 
     if (!apiKeyRecord) {
       throw new Error(`API Key for ${provider} has not been registered.`);
@@ -86,25 +88,29 @@ export async function generateBlogContent(postId: string, provider: string, guid
       throw new Error("AI generated empty content. Parse failed.");
     }
 
-    // 4. Save generated content back to DB
-    await prisma.blogPost.update({
-      where: { id: postId },
-      data: {
+    // 4. Save generated content back to Supabase
+    const { error: saveErr } = await supabase
+      .from("BlogPost")
+      .update({
         title: generatedTitle,
         content: generatedContent,
         status: "COMPLETED",
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq("id", postId);
+
+    if (saveErr) throw saveErr;
 
   } catch (error: any) {
     console.error(`AI Generation failure for post ${postId}:`, error);
-    await prisma.blogPost.update({
-      where: { id: postId },
-      data: {
+    await supabase
+      .from("BlogPost")
+      .update({
         status: "FAILED",
         errorMessage: error.message || "Unknown AI generation error",
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq("id", postId);
   }
 }
 
@@ -115,18 +121,15 @@ function parseAiResponse(rawText: string): { title: string; content: string } {
   let title = "AI가 작성한 블로그 글";
   let content = rawText;
 
-  // Extract TITLE
   const titleMatch = rawText.match(/\[TITLE\]\s*(.*)/i);
   if (titleMatch && titleMatch[1]) {
     title = titleMatch[1].trim();
   }
 
-  // Extract BODY
   const bodyIndex = rawText.indexOf("[BODY]");
   if (bodyIndex !== -1) {
     content = rawText.substring(bodyIndex + 6).trim();
   } else {
-    // Fallback: If no tags, clean up TITLE lines if they exist at top
     content = rawText.replace(/\[TITLE\]\s*(.*)/i, "").trim();
   }
 
