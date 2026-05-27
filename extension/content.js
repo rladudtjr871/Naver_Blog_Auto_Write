@@ -121,39 +121,88 @@ if (isDashboard) {
 }
 
 /**
+ * Find the actual editable element from a comma-separated selector string
+ */
+function findEditableElement(selectorString) {
+  if (!selectorString) return null;
+  const selectors = selectorString.split(",").map(s => s.trim());
+  for (const s of selectors) {
+    const el = document.querySelector(s);
+    if (el) {
+      if (el.getAttribute("contenteditable") === "true" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        return el;
+      }
+      const editableChild = el.querySelector("[contenteditable='true'], input, textarea");
+      if (editableChild) {
+        return editableChild;
+      }
+      return el;
+    }
+  }
+  return null;
+}
+
+/**
  * Execute typing macro for Naver SmartEditor ONE
  */
 async function injectBlogContent(title, content, images) {
   const selectors = editorConfig.naver_editor_selectors;
   const settings = editorConfig.macro_settings;
 
+  // 0. Dismiss auto-save and help popups if present
+  if (selectors.popup_cancel_button) {
+    const popupCancel = document.querySelector(selectors.popup_cancel_button);
+    if (popupCancel) {
+      console.log("Dismissing popup cancel button...");
+      popupCancel.click();
+      await sleep(500);
+    }
+  }
+
+  if (selectors.help_close_button) {
+    const helpClose = document.querySelector(selectors.help_close_button);
+    if (helpClose) {
+      console.log("Dismissing tutorial help close button...");
+      helpClose.click();
+      await sleep(500);
+    }
+  }
+
   // 1. Inject Title
   console.log("Injecting title...");
-  const titleEl = document.querySelector(selectors.title_input);
+  const titleEl = findEditableElement(selectors.title_input);
   if (!titleEl) {
     throw new Error("네이버 블로그 에디터 제목 영역을 찾을 수 없습니다. 에디터 모드인지 확인해 주세요.");
   }
   
   titleEl.focus();
+  titleEl.click();
+  await sleep(100);
+
   // Clear any existing placeholder or content
   document.execCommand("selectAll", false, null);
   document.execCommand("delete", false, null);
-  // Insert new title
-  document.execCommand("insertText", false, title);
+  await sleep(100);
+
+  // Insert title character by character (ActionChains style: 10ms ~ 100ms random delay)
+  for (let i = 0; i < title.length; i++) {
+    const char = title[i];
+    document.execCommand("insertText", false, char);
+    const delay = Math.floor(Math.random() * (100 - 10 + 1)) + 10;
+    await sleep(delay);
+  }
   await sleep(settings.paragraph_delay_ms);
 
   // 2. Focus on Content Area
   console.log("Focusing content area...");
-  const contentEl = document.querySelector(selectors.content_editable);
+  const contentEl = findEditableElement(selectors.content_editable);
   if (!contentEl) {
     throw new Error("네이버 블로그 에디터 본문 영역을 찾을 수 없습니다.");
   }
   
   contentEl.focus();
-  
-  // Clear existing content (optional, but safer to start fresh if needed)
-  // document.execCommand("selectAll", false, null);
-  // document.execCommand("delete", false, null);
+  contentEl.click();
+  await sleep(100);
 
   // 3. Split content into paragraphs to inject them naturally
   const paragraphs = content.split("\n");
@@ -163,9 +212,13 @@ async function injectBlogContent(title, content, images) {
     const paragraphText = paragraphs[i].trim();
     
     if (paragraphText) {
-      // Use document.execCommand('insertText') to trigger React/Vue editor state change properly
-      document.execCommand("insertText", false, paragraphText);
-      await sleep(settings.typing_delay_ms);
+      // Type paragraph character by character (ActionChains style: 10ms ~ 100ms random delay)
+      for (let j = 0; j < paragraphText.length; j++) {
+        const char = paragraphText[j];
+        document.execCommand("insertText", false, char);
+        const delay = Math.floor(Math.random() * (100 - 10 + 1)) + 10;
+        await sleep(delay);
+      }
     }
     
     // Trigger Enter key (newline) to create a new editor paragraph block
@@ -187,7 +240,19 @@ async function injectBlogContent(title, content, images) {
     }
   }
 
-  // 4. Handle Images by creating a helper layout inside the web view
+  // 4. Click Save Button if it exists
+  if (selectors.save_button) {
+    console.log("Checking for save button...");
+    const saveBtn = document.querySelector(selectors.save_button);
+    if (saveBtn) {
+      console.log("Clicking save button:", selectors.save_button);
+      saveBtn.click();
+    } else {
+      console.warn("Save button not found matching:", selectors.save_button);
+    }
+  }
+
+  // 5. Handle Images by creating a helper layout inside the web view
   if (images && images.length > 0) {
     createImageHelperOverlay(images);
   }
@@ -268,13 +333,28 @@ function sleep(ms) {
 async function waitForEditorAndInject(title, content, images) {
   console.log("Waiting for Naver editor elements to be ready...");
   let attempts = 0;
-  const maxAttempts = 30; // 30 attempts * 500ms = 15 seconds max wait
+  const maxAttempts = 40; // 40 attempts * 500ms = 20 seconds max wait
   
   while (attempts < maxAttempts) {
     const selectors = editorConfig ? editorConfig.naver_editor_selectors : null;
     if (selectors) {
-      const titleEl = document.querySelector(selectors.title_input);
-      const contentEl = document.querySelector(selectors.content_editable);
+      // Proactively dismiss auto-save and help popups during waiting
+      const popupCancelEl = document.querySelector(selectors.popup_cancel_button);
+      if (popupCancelEl) {
+        console.log("Auto-save popup found, clicking cancel...");
+        popupCancelEl.click();
+        await sleep(500);
+      }
+
+      const helpCloseEl = document.querySelector(selectors.help_close_button);
+      if (helpCloseEl) {
+        console.log("Tutorial help panel found, clicking close...");
+        helpCloseEl.click();
+        await sleep(500);
+      }
+
+      const titleEl = findEditableElement(selectors.title_input);
+      const contentEl = findEditableElement(selectors.content_editable);
       
       if (titleEl && contentEl) {
         console.log("Editor elements found! Injecting content automatically...");
@@ -293,6 +373,6 @@ async function waitForEditorAndInject(title, content, images) {
     await sleep(500);
   }
   
-  console.error("Editor elements not found after 15 seconds. Autoinjection aborted.");
+  console.error("Editor elements not found after 20 seconds. Autoinjection aborted.");
   alert("자동 주입 실패: 네이버 블로그 에디터를 찾지 못했습니다. 에디터 모드인지 확인해 주세요.");
 }
