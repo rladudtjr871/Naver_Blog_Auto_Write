@@ -26,6 +26,7 @@ export function useHome() {
   const [authPassword, setAuthPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [tokenModalTab, setTokenModalTab] = useState<"install" | "token">("install");
 
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
@@ -355,6 +356,8 @@ export function useHome() {
     setAuthMessage,
     isTokenModalOpen,
     setIsTokenModalOpen,
+    tokenModalTab,
+    setTokenModalTab,
     isSdkModalOpen,
     setIsSdkModalOpen,
     apiKeys,
