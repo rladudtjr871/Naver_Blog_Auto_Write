@@ -47,9 +47,8 @@ export function Header(props: HeaderProps) {
             onClick={() => setIsTokenModalOpen(true)}
             className="bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <svg className="w-4 h-4 text-[#777]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/extension-icon.png" alt="Extension" className="w-4 h-4 object-contain" />
             익스텐션 토큰
           </button>
 
