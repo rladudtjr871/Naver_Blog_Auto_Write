@@ -26,26 +26,59 @@ try {
   console.log("Config fetch skipped. Using default fallback selectors.");
 }
 
-// Listen for messages from popup.js (only in the editor frame context)
-if (window.location.hostname.includes("editor.blog.naver.com")) {
+// 1. Listen for runtime messages from popup.js (only in the TOP frame)
+if (window.self === window.top) {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "INJECT_POST") {
       const { title, content, images } = request.data;
-      
-      injectBlogContent(title, content, images)
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((err) => {
-          console.error("Injection failed:", err);
-          sendResponse({ success: false, error: err.message });
-        });
-        
-      return true; // Keep message channel open for asynchronous response
+
+      // Case A: Direct editor tab (not inside blog.naver.com wrapper)
+      if (window.location.hostname.includes("editor.blog.naver.com")) {
+        injectBlogContent(title, content, images)
+          .then(() => sendResponse({ success: true }))
+          .catch((err) => sendResponse({ success: false, error: err.message }));
+        return true;
+      }
+
+      // Case B: blog.naver.com wrapper containing the editor iframe
+      const iframe = document.getElementById("mainFrame");
+      if (iframe) {
+        const handleIframeResponse = (e) => {
+          if (e.data && e.data.action === "INJECT_POST_RESPONSE") {
+            window.removeEventListener("message", handleIframeResponse);
+            sendResponse(e.data.response);
+          }
+        };
+        window.addEventListener("message", handleIframeResponse);
+
+        // Forward to the iframe content script
+        iframe.contentWindow.postMessage({ action: "INJECT_POST", data: request.data }, "*");
+        return true;
+      } else {
+        sendResponse({ success: false, error: "네이버 블로그 에디터 아이프레임(mainFrame)을 찾을 수 없습니다." });
+      }
     }
   });
+}
 
-  // Auto-run if there is a pending injection from direct tab open
+// 2. Listen for postMessage from parent frame (only inside the editor iframe)
+if (window.self !== window.top && window.location.hostname.includes("editor.blog.naver.com")) {
+  window.addEventListener("message", (e) => {
+    if (e.data && e.data.action === "INJECT_POST") {
+      const { title, content, images } = e.data.data;
+      injectBlogContent(title, content, images)
+        .then(() => {
+          window.parent.postMessage({ action: "INJECT_POST_RESPONSE", response: { success: true } }, "*");
+        })
+        .catch((err) => {
+          window.parent.postMessage({ action: "INJECT_POST_RESPONSE", response: { success: false, error: err.message } }, "*");
+        });
+    }
+  });
+}
+
+// 3. Auto-run if there is a pending injection from direct tab open (only inside the editor frame/iframe)
+if (window.location.hostname.includes("editor.blog.naver.com")) {
   chrome.storage.local.get("pendingInjection", (result) => {
     if (result && result.pendingInjection) {
       const data = result.pendingInjection;
