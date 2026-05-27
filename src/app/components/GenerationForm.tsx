@@ -47,7 +47,7 @@ export function GenerationForm(props: GenerationFormProps) {
       </div>
 
       <form onSubmit={handleGenerate} className="flex flex-col gap-4">
-        
+
         {/* Category */}
         <div>
           <label className="block text-xs font-bold text-[#333] mb-2">카테고리</label>
@@ -58,11 +58,13 @@ export function GenerationForm(props: GenerationFormProps) {
               disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#333] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all appearance-none cursor-pointer disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
             >
-              <option value="IT/테크">IT / 테크</option>
-              <option value="맛집/카페">맛집 / 카페</option>
-              <option value="여행/레저">여행 / 레저</option>
-              <option value="뷰티/패션">뷰티 / 패션</option>
-              <option value="비즈니스/일상">비즈니스 / 일상</option>
+              {/* <option value="IT/테크">IT / 테크</option> */}
+              <option value="맛집">맛집</option>
+              <option value="카페">카페</option>
+              <option value="여행">여행</option>
+              <option value="뷰티">뷰티</option>
+              <option value="패션">패션</option>
+              {/* <option value="비즈니스/일상">비즈니스 / 일상</option> */}
             </select>
             <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#777]">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -80,11 +82,10 @@ export function GenerationForm(props: GenerationFormProps) {
               type="button"
               onClick={() => setModel("OPENAI")}
               disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.openai}
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                model === "OPENAI"
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${model === "OPENAI"
                   ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                   : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
-              }`}
+                }`}
             >
               OpenAI GPT-4o {!savedKeysStatus.openai && " (API 키 필요)"}
             </button>
@@ -92,11 +93,10 @@ export function GenerationForm(props: GenerationFormProps) {
               type="button"
               onClick={() => setModel("GEMINI")}
               disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.gemini}
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                model === "GEMINI"
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${model === "GEMINI"
                   ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                   : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
-              }`}
+                }`}
             >
               Gemini 1.5 Pro {!savedKeysStatus.gemini && " (API 키 필요)"}
             </button>

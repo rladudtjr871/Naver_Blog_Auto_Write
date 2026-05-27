@@ -8,10 +8,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  */
 export async function generateBlogContent(postId: string, provider: string, guideText: string) {
   try {
-    // 1. Fetch user ID associated with this post using supabaseAdmin
+    // 1. Fetch user ID and associated images using supabaseAdmin
     const { data: post, error: postErr } = await supabaseAdmin
       .from("BlogPost")
-      .select("userId")
+      .select("userId, images:Image(*)")
       .eq("id", postId)
       .single();
 
@@ -57,18 +57,38 @@ export async function generateBlogContent(postId: string, provider: string, guid
    [TITLE] 제주도 인생 흑돼지 맛집 탐방기
    [BODY] ## 서론... \n\n 맛집을 다녀왔습니다...
 3. 친근하고 유익한 구어체 한글(~합니다, ~했답니다, ~요 등)을 사용할 것.
-4. 네이버 스마트에디터 ONE에 직접 타이핑될 예정이므로 가독성을 위해 단락을 자주 나누고, 소제목(##, ###)과 적절한 이모지를 적극적으로 활용하여 예쁘게 작성할 것.`;
+4. 네이버 스마트에디터 ONE에 직접 타이핑될 예정이므로 가독성을 위해 단락을 자주 나누고, 소제목(##, ###)과 적절한 이모지를 적극적으로 활용하여 예쁘게 작성할 것.
+5. 함께 제공되는 이미지가 있다면 이미지 속 시각적 정보(분위기, 상품 상태, 색상, 장소 등)를 매우 세부적으로 관찰하여 본문 내용에 자연스럽게 묘사해 줄 것.`;
 
     const userPrompt = `블로그 작성 가이드라인:
 "${guideText}"`;
 
     if (provider.toUpperCase() === "OPENAI") {
       const openai = new OpenAI({ apiKey });
+      
+      const userContent: any[] = [
+        { type: "text", text: userPrompt }
+      ];
+
+      // Add base64 images if available
+      if (post && post.images && Array.isArray(post.images)) {
+        for (const img of post.images) {
+          if (img.url && img.url.startsWith("data:image/")) {
+            userContent.push({
+              type: "image_url",
+              image_url: {
+                url: img.url
+              }
+            });
+          }
+        }
+      }
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         temperature: 0.7,
       });
@@ -80,9 +100,31 @@ export async function generateBlogContent(postId: string, provider: string, guid
     } else if (provider.toUpperCase() === "GEMINI") {
       const ai = new GoogleGenerativeAI(apiKey);
       const model = ai.getGenerativeModel({ model: "gemini-1.5-pro" });
+      
+      const parts: any[] = [
+        { text: `${systemPrompt}\n\n${userPrompt}` }
+      ];
+
+      // Add base64 images if available
+      if (post && post.images && Array.isArray(post.images)) {
+        for (const img of post.images) {
+          if (img.url && img.url.startsWith("data:image/")) {
+            const parsed = parseBase64DataUrl(img.url);
+            if (parsed) {
+              parts.push({
+                inlineData: {
+                  data: parsed.data,
+                  mimeType: parsed.mimeType
+                }
+              });
+            }
+          }
+        }
+      }
+
       const response = await model.generateContent({
         contents: [
-          { role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }
+          { role: "user", parts }
         ]
       });
 
@@ -144,4 +186,16 @@ function parseAiResponse(rawText: string): { title: string; content: string } {
   }
 
   return { title, content };
+}
+
+/**
+ * Helper to extract mimeType and base64 data from a data URL
+ */
+function parseBase64DataUrl(dataUrl: string) {
+  const matches = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.*)$/);
+  if (!matches) return null;
+  return {
+    mimeType: matches[1],
+    data: matches[2]
+  };
 }
