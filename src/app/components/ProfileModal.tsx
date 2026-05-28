@@ -125,15 +125,24 @@ export function ProfileModal(props: ProfileModalProps) {
                     : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
               />
-              {!isEditing && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-white hover:bg-gray-50 border border-[#ccd2d6] hover:border-gray-300 text-xs font-bold rounded-xl text-[#333] transition-all cursor-pointer"
-                >
-                  수정
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isEditing) {
+                    setBlogIdInput(naverBlogId);
+                    setIsEditing(false);
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
+                className={`px-4 py-2 border text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  isEditing
+                    ? "bg-red-50 hover:bg-red-100/70 border-red-200 text-red-600"
+                    : "bg-white hover:bg-gray-50 border-[#ccd2d6] hover:border-gray-300 text-[#333]"
+                }`}
+              >
+                {isEditing ? "취소" : "수정"}
+              </button>
             </div>
           </div>
 
