@@ -17,9 +17,21 @@ export async function GET(request: Request) {
       throw selectError;
     }
 
+    // Fetch default references
+    const { data: defaultRefs, error: refsError } = await supabaseAdmin
+      .from("DefaultReference")
+      .select("content")
+      .eq("userId", user.id)
+      .order("createdAt", { ascending: true });
+
+    if (refsError) {
+      throw refsError;
+    }
+
     return NextResponse.json({
       email: userProfile?.email || user.email,
       naverBlogId: userProfile?.naverBlogId || "",
+      defaultReferences: defaultRefs ? defaultRefs.map((r: any) => r.content) : [],
     });
   } catch (error: any) {
     console.error("Fetch profile error:", error);
@@ -33,46 +45,81 @@ export async function POST(request: Request) {
     const user = await getAuthUser(request);
 
     const body = await request.json();
-    const { naverBlogId } = body;
+    const { naverBlogId, defaultReferences } = body;
 
-    if (naverBlogId === undefined) {
+    if (naverBlogId === undefined && defaultReferences === undefined) {
       return NextResponse.json(
-        { error: "naverBlogId is required" },
+        { error: "naverBlogId or defaultReferences is required" },
         { status: 400 }
       );
     }
 
-    // 1. Update public."User" table
-    const { error: dbError } = await supabaseAdmin
-      .from("User")
-      .update({
-        naverBlogId: naverBlogId.trim(),
-        updatedAt: new Date().toISOString(),
-      })
-      .eq("id", user.id);
+    // 1. Update public."User" table if naverBlogId is provided
+    if (naverBlogId !== undefined) {
+      const { error: dbError } = await supabaseAdmin
+        .from("User")
+        .update({
+          naverBlogId: naverBlogId.trim(),
+          updatedAt: new Date().toISOString(),
+        })
+        .eq("id", user.id);
 
-    if (dbError) {
-      throw dbError;
+      if (dbError) {
+        throw dbError;
+      }
+
+      // 2. Update Supabase Auth user metadata
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        {
+          user_metadata: {
+            naverBlogId: naverBlogId.trim(),
+          },
+        }
+      );
+
+      if (authError) {
+        console.warn("Failed to sync naverBlogId to auth user metadata:", authError.message);
+      }
     }
 
-    // 2. Update Supabase Auth user metadata
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
-      {
-        user_metadata: {
-          naverBlogId: naverBlogId.trim(),
-        },
-      }
-    );
+    // 3. Update DefaultReference table if defaultReferences is provided
+    if (defaultReferences !== undefined && Array.isArray(defaultReferences)) {
+      const cleanedRefs = defaultReferences.map(r => r.trim()).filter(Boolean);
 
-    if (authError) {
-      console.warn("Failed to sync naverBlogId to auth user metadata:", authError.message);
+      // Delete existing
+      const { error: deleteError } = await supabaseAdmin
+        .from("DefaultReference")
+        .delete()
+        .eq("userId", user.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Insert new if any
+      if (cleanedRefs.length > 0) {
+        const insertData = cleanedRefs.map(content => ({
+          userId: user.id,
+          content: content,
+          updatedAt: new Date().toISOString()
+        }));
+
+        const { error: insertError } = await supabaseAdmin
+          .from("DefaultReference")
+          .insert(insertData);
+
+        if (insertError) {
+          throw insertError;
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: "Profile updated successfully",
-      naverBlogId: naverBlogId.trim(),
+      naverBlogId: naverBlogId?.trim(),
+      defaultReferences: defaultReferences,
     });
   } catch (error: any) {
     console.error("Update profile error:", error);

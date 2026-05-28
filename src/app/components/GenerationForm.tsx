@@ -21,6 +21,8 @@ type GenerationFormProps = {
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleReset: () => void;
   handleGenerate: (e: React.FormEvent) => Promise<void>;
+  hasDefaultReferences: boolean;
+  handleLoadDefaultReferences: () => void;
 };
 
 export function GenerationForm(props: GenerationFormProps) {
@@ -42,6 +44,8 @@ export function GenerationForm(props: GenerationFormProps) {
     handleImageUpload,
     handleReset,
     handleGenerate,
+    hasDefaultReferences,
+    handleLoadDefaultReferences,
   } = props;
 
   const [activeExampleTab, setActiveExampleTab] = useState(0);
@@ -148,7 +152,22 @@ export function GenerationForm(props: GenerationFormProps) {
         {/* Benchmarking Examples */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-[#333]">벤치마킹할 예시 블로그</label>
+            <div className="flex items-center gap-2">
+              <label className="block text-xs font-bold text-[#333]">벤치마킹할 예시 블로그</label>
+              <button
+                type="button"
+                onClick={handleLoadDefaultReferences}
+                disabled={!hasDefaultReferences || (post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED")}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                  hasDefaultReferences 
+                    ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] hover:bg-[#03c75a]/20" 
+                    : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
+                title={hasDefaultReferences ? "기본으로 저장된 예시를 불러옵니다." : "저장된 기본 예시가 없습니다. 회원정보 수정에서 등록해주세요."}
+              >
+                기본 예시 불러오기
+              </button>
+            </div>
             <span className="text-[10px] text-gray-400">학습할 글의 작성 스타일을 복사해 넣으세요.</span>
           </div>
 

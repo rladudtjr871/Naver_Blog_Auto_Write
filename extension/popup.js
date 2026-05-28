@@ -4,6 +4,7 @@ let cachedBlogId = "";
 let cachedServerUrl = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const serverUrlInput = document.getElementById("serverUrl");
   const postIdInput = document.getElementById("postId");
   const accessTokenInput = document.getElementById("accessToken");
   const syncStatusSpan = document.getElementById("syncStatus");
@@ -116,7 +117,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 3. Load saved settings from Chrome Storage
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["serverUrl", "blogId", "postId", "accessToken"], (result) => {
-      if (result.serverUrl) cachedServerUrl = result.serverUrl;
+      if (result.serverUrl) {
+        cachedServerUrl = result.serverUrl;
+      } else {
+        cachedServerUrl = "http://localhost:3000";
+      }
+      if (serverUrlInput) serverUrlInput.value = cachedServerUrl;
+
       if (result.blogId) {
         cachedBlogId = result.blogId;
       }
@@ -132,7 +139,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 4. Save manual token changes
+  // 4. Save manual token and server url changes
+  if (serverUrlInput) {
+    serverUrlInput.addEventListener("input", () => {
+      const url = serverUrlInput.value.trim();
+      cachedServerUrl = url;
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ serverUrl: url }, () => {
+          syncTokenFromTab();
+        });
+      }
+    });
+  }
+
   accessTokenInput.addEventListener("input", () => {
     const token = accessTokenInput.value.trim();
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
@@ -148,8 +167,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateSyncStatus(false, "연동 안 됨");
     }
   });
-
-  // Server URL change listener removed as it is auto-detected
 
   // 5. Fetch post data from backend API
   fetchBtn.addEventListener("click", async () => {
@@ -374,6 +391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ) {
           const origin = url.origin;
           cachedServerUrl = origin;
+          if (serverUrlInput) serverUrlInput.value = origin;
           chrome.storage.local.set({ serverUrl: origin });
         }
       } catch (e) {

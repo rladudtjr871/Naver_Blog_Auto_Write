@@ -76,6 +76,8 @@ export function useHome() {
   const [authNaverBlogId, setAuthNaverBlogId] = useState("");
   const [naverBlogId, setNaverBlogId] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [defaultReferences, setDefaultReferences] = useState<string[]>([]);
+  const [hasDefaultReferences, setHasDefaultReferences] = useState(false);
 
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
@@ -143,6 +145,9 @@ export function useHome() {
       if (res.ok) {
         const data = await res.json();
         setNaverBlogId(data.naverBlogId || "");
+        const refs = data.defaultReferences || [];
+        setDefaultReferences(refs);
+        setHasDefaultReferences(refs.length > 0);
       }
     } catch (err) {
       console.error("Failed to load user profile:", err);
@@ -239,6 +244,8 @@ export function useHome() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setDefaultReferences([]);
+    setHasDefaultReferences(false);
     handleReset();
   };
 
@@ -494,6 +501,13 @@ export function useHome() {
     }
   };
 
+  const handleLoadDefaultReferences = () => {
+    if (defaultReferences.length > 0) {
+      setReferences(defaultReferences);
+      alert("기본 벤치마킹 예시를 불러왔습니다.");
+    }
+  };
+
   return {
     session,
     isAuthLoading,
@@ -544,5 +558,10 @@ export function useHome() {
     handleReset,
     isTestingSelenium,
     handleSeleniumTest,
+    defaultReferences,
+    setDefaultReferences,
+    hasDefaultReferences,
+    handleLoadDefaultReferences,
+    fetchProfile,
   };
 }
