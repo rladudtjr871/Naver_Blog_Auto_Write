@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "BlogAutoWrite Helper",
-  "version": "1.0.6",
-  "description": "AI로 생성한 포스팅 본문을 네이버 스마트에디터 ONE에 자동으로 주입해 줍니다.",
+  "version": "1.0.7",
+  "description": "AI로 생성한 포스팅 본문을 블로그 에디터에 자동으로 주입해 줍니다.",
   "permissions": [
     "activeTab",
     "scripting",

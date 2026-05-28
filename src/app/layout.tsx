@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BlogAutoWrite - AI 기반 네이버 블로그 자동 작성",
-  description: "AI로 블로그 본문을 생성하고 크롬 익스텐션을 통해 네이버 스마트에디터 ONE에 간편하게 주입하는 프리미엄 서비스",
+  title: "BlogAutoWrite - AI 기반 블로그 자동 작성",
+  description: "AI로 블로그 본문을 생성하고 크롬 익스텐션을 통해 블로그 에디터에 간편하게 주입하는 프리미엄 서비스",
 };
 
 export default function RootLayout({

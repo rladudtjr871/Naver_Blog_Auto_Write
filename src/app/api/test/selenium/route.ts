@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     if (selectError || !userProfile || !userProfile.naverBlogId) {
       return NextResponse.json(
-        { error: "네이버 블로그 ID가 설정되어 있지 않습니다. 회원정보 수정에서 네이버 블로그 ID를 먼저 설정해주세요." },
+        { error: "블로그 ID가 설정되어 있지 않습니다. 회원정보 수정에서 블로그 ID를 먼저 설정해주세요." },
         { status: 400 }
       );
     }

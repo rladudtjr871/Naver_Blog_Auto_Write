@@ -139,7 +139,7 @@ export function Header(props: HeaderProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] bg-[#03c75a]/10 text-[#03c75a] px-1.5 py-0.5 rounded font-bold">Naver 연동 계정</span>
+                    <span className="text-[10px] bg-[#03c75a]/10 text-[#03c75a] px-1.5 py-0.5 rounded font-bold">블로그 연동 계정</span>
                   </div>
                   <p className="text-xs text-gray-700 truncate font-bold mt-1" title={session?.user?.email}>
                     {session?.user?.email}

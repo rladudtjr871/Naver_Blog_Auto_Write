@@ -184,7 +184,7 @@ export function useHome() {
     e.preventDefault();
     setAuthMessage("");
     if (!authEmail || !authPassword || !authNaverBlogId.trim()) {
-      setAuthMessage("이메일, 비밀번호, 네이버 블로그 ID를 입력해주세요.");
+      setAuthMessage("이메일, 비밀번호, 블로그 ID를 입력해주세요.");
       return;
     }
     setIsAuthLoading(true);
@@ -458,7 +458,7 @@ export function useHome() {
     }
 
     if (!naverBlogId) {
-      alert("네이버 블로그 ID를 먼저 설정해주세요.");
+      alert("블로그 ID를 먼저 설정해주세요.");
       setIsProfileModalOpen(true);
       return;
     }

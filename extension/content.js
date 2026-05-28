@@ -55,7 +55,7 @@ if (window.self === window.top) {
         iframe.contentWindow.postMessage({ action: "INJECT_POST", data: request.data }, "*");
         return true;
       } else {
-        sendResponse({ success: false, error: "네이버 블로그 에디터 아이프레임(mainFrame)을 찾을 수 없습니다." });
+        sendResponse({ success: false, error: "블로그 에디터 아이프레임(mainFrame)을 찾을 수 없습니다." });
       }
     }
   });
@@ -113,7 +113,7 @@ if (isDashboard) {
       chrome.storage.local.get("blogId", (result) => {
         const blogId = result.blogId;
         if (!blogId) {
-          alert("오류: 크롬 익스텐션 설정에서 네이버 블로그 ID를 먼저 기입해 주세요.");
+          alert("오류: 블로그 ID가 아직 설정되지 않았습니다. 대시보드 로그인 후 다시 시도해 주세요.");
           return;
         }
 
@@ -212,7 +212,7 @@ async function injectBlogContent(title, content, images, place) {
   console.log("Injecting title...");
   const titleEl = findEditableElement(selectors.title_input);
   if (!titleEl) {
-    throw new Error("네이버 블로그 에디터 제목 영역을 찾을 수 없습니다. 에디터 모드인지 확인해 주세요.");
+    throw new Error("블로그 에디터 제목 영역을 찾을 수 없습니다. 에디터 모드인지 확인해 주세요.");
   }
   
   await focusAndSetCursor(titleEl, selectors.title_input);
@@ -235,7 +235,7 @@ async function injectBlogContent(title, content, images, place) {
   console.log("Focusing content area...");
   const contentEl = findEditableElement(selectors.content_editable);
   if (!contentEl) {
-    throw new Error("네이버 블로그 에디터 본문 영역을 찾을 수 없습니다.");
+    throw new Error("블로그 에디터 본문 영역을 찾을 수 없습니다.");
   }
   
   await focusAndSetCursor(contentEl, selectors.content_editable);
@@ -431,7 +431,7 @@ function createImageHelperOverlay(images) {
 
   const guide = document.createElement("p");
   guide.style.cssText = "font-size:10px; color:#94a3b8; margin-bottom:10px; line-height:1.4;";
-  guide.textContent = "아래 이미지를 네이버 에디터 본문 영역으로 직접 드래그 앤 드롭하여 삽입하세요.";
+  guide.textContent = "아래 이미지를 에디터 본문 영역으로 직접 드래그 앤 드롭하여 삽입하세요.";
   overlay.appendChild(guide);
 
   const grid = document.createElement("div");
@@ -511,5 +511,5 @@ async function waitForEditorAndInject(title, content, images, place) {
   }
   
   console.error("Editor elements not found after 20 seconds. Autoinjection aborted.");
-  alert("자동 주입 실패: 네이버 블로그 에디터를 찾지 못했습니다. 에디터 모드인지 확인해 주세요.");
+  alert("자동 주입 실패: 블로그 에디터를 찾지 못했습니다. 에디터 모드인지 확인해 주세요.");
 }

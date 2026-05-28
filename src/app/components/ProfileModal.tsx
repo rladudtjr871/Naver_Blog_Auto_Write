@@ -35,7 +35,7 @@ export function ProfileModal(props: ProfileModalProps) {
     if (!session?.access_token) return;
 
     if (!blogIdInput.trim()) {
-      setMessage("네이버 블로그 ID를 입력해주세요.");
+      setMessage("블로그 ID를 입력해주세요.");
       setIsSuccess(false);
       return;
     }
@@ -110,7 +110,7 @@ export function ProfileModal(props: ProfileModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[#333] mb-1.5">네이버 블로그 ID</label>
+            <label className="block text-xs font-bold text-[#333] mb-1.5">블로그 ID</label>
             <div className="flex gap-2">
               <input
                 type="text"

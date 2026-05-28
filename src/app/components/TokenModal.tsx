@@ -76,13 +76,13 @@ export function TokenModal(props: TokenModalProps) {
             /* Column 1: Installation Guide */
             <div className="flex flex-col gap-4 animate-slide-down-fade">
               <p className="text-xs text-[#666] leading-relaxed">
-                네이버 스마트에디터와 포스트 자동 작성을 연동하기 위해 아래 설치 가이드에 따라 크롬 익스텐션을 추가해 주세요.
+                스마트에디터와 포스트 자동 작성을 연동하기 위해 아래 설치 가이드에 따라 크롬 익스텐션을 추가해 주세요.
               </p>
 
               {/* Download Button */}
               <a
                 href={`/extension_v${manifest.version}.zip`}
-                download={`naver-blog-autowrite-extension-v${manifest.version}.zip`}
+                download={`blog-autowrite-extension-v${manifest.version}.zip`}
                 className="w-full bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3.5 px-4 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer select-none text-center"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

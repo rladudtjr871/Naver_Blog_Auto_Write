@@ -131,7 +131,7 @@ export function GenerationForm(props: GenerationFormProps) {
         {["맛집", "카페", "여행"].includes(category) && (
           <div className="animate-slide-down-fade origin-top">
             <label className="block text-xs font-bold text-[#333] mb-2">
-              장소 <span className="text-[#03c75a]">(네이버 지도 자동 검색어)</span>
+              장소 <span className="text-[#03c75a]">(지도 자동 검색어)</span>
             </label>
             <input
               type="text"

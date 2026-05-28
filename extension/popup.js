@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const blogId = cachedBlogId;
     if (!blogId) {
-      alert("네이버 블로그 ID가 아직 연동되지 않았습니다. 대시보드를 연동하거나 로그인해 주세요.");
+      alert("블로그 ID가 아직 연동되지 않았습니다. 대시보드를 연동하거나 로그인해 주세요.");
       return;
     }
 
@@ -242,7 +242,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (isCurrentTabBlogEditor) {
       // Direct injection into current active editor tab
-      injectBtn.textContent = "네이버 주입 요청 중...";
+      injectBtn.textContent = "주입 요청 중...";
       injectBtn.disabled = true;
 
       chrome.tabs.sendMessage(tab.id, { 
@@ -254,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           place: fetchedPostData.place
         } 
       }, (response) => {
-        injectBtn.textContent = "네이버 블로그 주입하기";
+        injectBtn.textContent = "블로그 주입하기";
         injectBtn.disabled = false;
 
         if (chrome.runtime.lastError) {
@@ -264,7 +264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (response && response.success) {
-          alert("성공적으로 네이버 스마트에디터 ONE 주입 매크로가 실행되었습니다!");
+          alert("성공적으로 블로그 에디터 주입 매크로가 실행되었습니다!");
         } else {
           alert(`주입 실패: ${response ? response.error : "알 수 없는 에러"}`);
         }
@@ -284,7 +284,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }, () => {
         const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
         chrome.tabs.create({ url: writeUrl }, () => {
-          injectBtn.textContent = "네이버 블로그 주입하기";
+          injectBtn.textContent = "블로그 주입하기";
           injectBtn.disabled = false;
           window.close(); // Close the popup since focus moves to the new tab
         });

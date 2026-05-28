@@ -43,7 +43,7 @@ export function AuthView(props: AuthViewProps) {
           <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e] mt-2">
             블로그<span className="text-[#03c75a]">AutoWrite</span>
           </h1>
-          <p className="text-[10px] text-[#777] tracking-wider uppercase font-mono">Naver Blog Auto-Write AI System</p>
+          <p className="text-[10px] text-[#777] tracking-wider uppercase font-mono">Blog Auto-Write AI System</p>
         </div>
 
         <form onSubmit={authMode === "login" ? handleLogin : handleSignUp} className="flex flex-col gap-4">
@@ -73,7 +73,7 @@ export function AuthView(props: AuthViewProps) {
 
           {authMode === "signup" && (
             <div>
-              <label className="block text-xs font-bold text-[#333] mb-1.5">네이버 블로그 ID</label>
+              <label className="block text-xs font-bold text-[#333] mb-1.5">블로그 ID</label>
               <input
                 type="text"
                 value={authNaverBlogId}
