@@ -86,7 +86,7 @@ export function Header(props: HeaderProps) {
           <svg className="w-4 h-4 text-[#03c75a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          익스텐션 추가
+          PC 자동화 프로그램
         </button>
 
         <button
@@ -165,7 +165,7 @@ export function Header(props: HeaderProps) {
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
-                    setTokenModalTab("token");
+                    setTokenModalTab("install");
                     setIsTokenModalOpen(true);
                   }}
                   className="w-full text-left px-3 py-2 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-2.5 transition-all cursor-pointer"
@@ -173,7 +173,7 @@ export function Header(props: HeaderProps) {
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                   </svg>
-                  <span>익스텐션 토큰 발급</span>
+                  <span>자동화 프로그램 설치</span>
                 </button>
 
                 <button

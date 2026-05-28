@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const user = await getAuthUser(request);
 
     const body = await request.json();
-    const { category, subject, references, images, model, place } = body;
+    const { category, subject, references, images, model, place, isDraft } = body;
 
     if (!subject || !subject.trim()) {
       return NextResponse.json({ error: "Subject is required" }, { status: 400 });
@@ -16,31 +16,12 @@ export async function POST(request: Request) {
 
     const aiModel = model || "OPENAI";
 
-    // 1. Delete any existing ReferencePosts and BlogPosts of this user (keeps max 1 temporary post per user)
-    const { error: deleteRefError } = await supabaseAdmin
-      .from("ReferencePost")
-      .delete()
-      .eq("userId", user.id);
-
-    if (deleteRefError) {
-      console.error("Failed to delete existing ReferencePosts:", deleteRefError);
-    }
-
-    const { error: deletePostError } = await supabaseAdmin
-      .from("BlogPost")
-      .delete()
-      .eq("userId", user.id);
-
-    if (deletePostError) {
-      console.error("Failed to delete existing BlogPosts:", deletePostError);
-    }
-
-    // 2. Create BlogPost record (PENDING)
+    // 1. Create BlogPost record (PENDING or DRAFT)
     const { data: blogPost, error: postError } = await supabaseAdmin
       .from("BlogPost")
       .insert({
         userId: user.id,
-        status: "PENDING",
+        status: isDraft ? "DRAFT" : "PENDING",
         place: place ? place.trim() : null,
       })
       .select()
@@ -50,7 +31,7 @@ export async function POST(request: Request) {
       throw postError || new Error("Failed to create BlogPost");
     }
 
-    // 3. Create ReferencePost records (Subject + Examples)
+    // 2. Create ReferencePost records (Subject + Examples)
     const referenceRecords = [
       {
         userId: user.id,
@@ -76,7 +57,7 @@ export async function POST(request: Request) {
       throw refError;
     }
 
-    // 4. Create Image records if provided
+    // 3. Create Image records if provided
     if (images && Array.isArray(images) && images.length > 0) {
       const imageData = images.map((img: any) => ({
         blogPostId: blogPost.id,
@@ -93,14 +74,16 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Trigger AI Generation asynchronously
-    generateBlogContent(blogPost.id, aiModel, subject).catch((err) => {
-      console.error("Asynchronous generation background trigger failed:", err);
-    });
+    // 4. Trigger AI Generation asynchronously (only if not a draft)
+    if (!isDraft) {
+      generateBlogContent(blogPost.id, aiModel, subject).catch((err) => {
+        console.error("Asynchronous generation background trigger failed:", err);
+      });
+    }
 
-    // 6. Instantly respond 202 Accepted
+    // 5. Instantly respond
     return NextResponse.json(
-      { postId: blogPost.id, status: "PENDING" },
+      { postId: blogPost.id, status: isDraft ? "DRAFT" : "PENDING" },
       { status: 202 }
     );
   } catch (error: any) {
@@ -116,7 +99,7 @@ export async function GET(request: Request) {
 
     const { data: posts, error } = await supabaseAdmin
       .from("BlogPost")
-      .select("*, images:Image(*)")
+      .select("*, images:Image(*), referencePosts:ReferencePost(*)")
       .eq("userId", user.id)
       .order("createdAt", { ascending: false });
 

@@ -28,6 +28,9 @@ type GenerationFormProps = {
   geminiModelsError: string;
   selectedGeminiModel: string;
   setSelectedGeminiModel: (val: string) => void;
+  setIsDraftListModalOpen: (open: boolean) => void;
+  isSavingDraft: boolean;
+  handleSaveDraft: () => Promise<void>;
 };
 
 export function GenerationForm(props: GenerationFormProps) {
@@ -56,18 +59,33 @@ export function GenerationForm(props: GenerationFormProps) {
     geminiModelsError,
     selectedGeminiModel,
     setSelectedGeminiModel,
+    setIsDraftListModalOpen,
+    isSavingDraft,
+    handleSaveDraft,
   } = props;
 
   const [activeExampleTab, setActiveExampleTab] = useState(0);
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex flex-col gap-5 bg-white border border-[#e4e8eb] shadow-xs">
-      <div>
-        <h2 className="text-base font-bold text-[#1e1e1e] flex items-center gap-2">
-          <span className="w-1 h-4 bg-[#03c75a] rounded-full inline-block" />
-          블로그 글 생성 가이드
-        </h2>
-        <p className="text-xs text-[#777] mt-1">블로그 주제와 AI 생성 옵션을 입력해주세요.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-base font-bold text-[#1e1e1e] flex items-center gap-2">
+            <span className="w-1 h-4 bg-[#03c75a] rounded-full inline-block" />
+            블로그 글 생성 가이드
+          </h2>
+          <p className="text-xs text-[#777] mt-1">블로그 주제와 AI 생성 옵션을 입력해주세요.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsDraftListModalOpen(true)}
+          className="bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] font-bold text-[11px] px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+        >
+          <svg className="w-3.5 h-3.5 text-[#03c75a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          임시 저장 목록
+        </button>
       </div>
 
       <form onSubmit={handleGenerate} className="flex flex-col gap-4">
@@ -352,21 +370,30 @@ export function GenerationForm(props: GenerationFormProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-3 pt-2">
+        <div className="grid grid-cols-4 gap-3 pt-2">
           <button
             type="button"
             onClick={handleReset}
-            className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-xs font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer"
+            disabled={post.status === "PENDING" || post.status === "PROCESSING"}
+            className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-[11px] font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             초기화
           </button>
           <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft || !subject.trim() || post.status === "PENDING" || post.status === "PROCESSING"}
+            className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-[11px] font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSavingDraft ? "저장 중..." : "임시 저장"}
+          </button>
+          <button
             type="submit"
             disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !subject.trim() || !model}
-            className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-sm py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 glow-btn cursor-pointer"
+            className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 glow-btn cursor-pointer"
           >
             AI 블로그 자동 생성
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </button>

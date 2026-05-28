@@ -8,6 +8,7 @@ import { PreviewPanel } from "./components/PreviewPanel";
 import { ApiKeyModal } from "./components/ApiKeyModal";
 import { TokenModal } from "./components/TokenModal";
 import { ProfileModal } from "./components/ProfileModal";
+import { DraftListModal } from "./components/DraftListModal";
 
 export default function Home() {
   const homeProps = useHome();
@@ -45,6 +46,7 @@ export default function Home() {
       <ApiKeyModal {...homeProps} />
       <TokenModal {...homeProps} />
       <ProfileModal {...homeProps} />
+      <DraftListModal {...homeProps} />
     </div>
   );
 }

@@ -76,6 +76,9 @@ export function useHome() {
   const [authNaverBlogId, setAuthNaverBlogId] = useState("");
   const [naverBlogId, setNaverBlogId] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [isDraftListModalOpen, setIsDraftListModalOpen] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [defaultReferences, setDefaultReferences] = useState<string[]>([]);
   const [hasDefaultReferences, setHasDefaultReferences] = useState(false);
   const [geminiModels, setGeminiModels] = useState<{ id: string; displayName: string; description: string }[]>([]);
@@ -92,7 +95,7 @@ export function useHome() {
   const wasAbortedRef = useRef(false);
   
   // Blog Form states
-  const [category, setCategory] = useState("IT/테크");
+  const [category, setCategory] = useState("맛집");
   const [model, setModel] = useState("");
   const [subject, setSubject] = useState("");
   const [place, setPlace] = useState("");
@@ -136,6 +139,7 @@ export function useHome() {
       fetchKeysStatus();
       fetchProfile();
       fetchGeminiModels();
+      fetchDrafts();
     }
   }, [session]);
 
@@ -193,6 +197,218 @@ export function useHome() {
       }
     } catch (err) {
       console.error("Failed to load user profile:", err);
+    }
+  };
+  const fetchLatestPost = async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/posts", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (res.ok) {
+        const posts = await res.json();
+        if (posts && posts.length > 0) {
+          const latestPost = posts[0];
+          
+          const detailRes = await fetch(`/api/posts/${latestPost.id}`, {
+            headers: {
+              "Authorization": `Bearer ${session.access_token}`
+            }
+          });
+          if (detailRes.ok) {
+            const data = await detailRes.json();
+            
+            if (data.category) {
+              setCategory(data.category);
+            }
+            if (data.subject) {
+              setSubject(data.subject);
+            }
+            setPlace(data.place || "");
+            if (data.references && data.references.length > 0) {
+              setReferences(data.references);
+            }
+            if (data.images && data.images.length > 0) {
+              const restoredUrls = data.images.map((img: any) => img.url);
+              setUploadedImages(restoredUrls);
+            }
+            
+            setPost({
+              id: data.postId,
+              status: data.status,
+              title: data.title,
+              content: data.content,
+              place: data.place,
+              images: data.images ? data.images.map((img: any) => img.url) : [],
+              errorMessage: data.errorMessage
+            });
+            
+            if (data.status === "PENDING" || data.status === "PROCESSING") {
+              startPolling(data.postId);
+            }
+          }
+        }
+      }
+    } catch (err) {
+    }
+  };
+
+  const fetchDrafts = async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/posts", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (res.ok) {
+        const posts = await res.json();
+        setDrafts(posts || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch drafts list:", err);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!subject.trim() || !session?.access_token) {
+      alert("주제를 입력해주세요.");
+      return;
+    }
+    setIsSavingDraft(true);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          category,
+          subject,
+          references,
+          images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
+          model: model === "GEMINI" ? selectedGeminiModel : "OPENAI",
+          place,
+          isDraft: true,
+        }),
+      });
+
+      if (res.ok) {
+        alert("임시 저장이 완료되었습니다.");
+        fetchDrafts();
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save draft");
+      }
+    } catch (err: any) {
+      alert("임시 저장 실패: " + err.message);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleLoadPost = async (postId: string) => {
+    if (!session?.access_token) return;
+    try {
+      const detailRes = await fetch(`/api/posts/${postId}`, {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (detailRes.ok) {
+        const data = await detailRes.json();
+        
+        if (data.category) {
+          setCategory(data.category);
+        }
+        if (data.subject) {
+          setSubject(data.subject);
+        }
+        setPlace(data.place || "");
+        if (data.references && data.references.length > 0) {
+          setReferences(data.references);
+        } else {
+          setReferences([""]);
+        }
+        if (data.images && data.images.length > 0) {
+          const restoredUrls = data.images.map((img: any) => img.url);
+          setUploadedImages(restoredUrls);
+        } else {
+          setUploadedImages([]);
+        }
+        
+        setPost({
+          id: data.postId,
+          status: data.status,
+          title: data.title,
+          content: data.content,
+          place: data.place,
+          images: data.images ? data.images.map((img: any) => img.url) : [],
+          errorMessage: data.errorMessage
+        });
+        
+        if (data.status === "PENDING" || data.status === "PROCESSING") {
+          startPolling(data.postId);
+        } else if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+
+        // Set progress
+        if (data.status === "COMPLETED") {
+          setProgress(100);
+        } else if (data.status === "FAILED") {
+          setProgress(0);
+        } else if (data.status === "DRAFT") {
+          setProgress(0);
+        } else {
+          setProgress(50);
+        }
+
+        setIsDraftListModalOpen(false);
+        alert("임시 저장된 글을 성공적으로 불러왔습니다.");
+      } else {
+        alert("글을 불러오지 못했습니다.");
+      }
+    } catch (err: any) {
+      console.error("Load post error:", err);
+      alert("글을 불러오는 도중 오류가 발생했습니다: " + err.message);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("정말 이 글(임시저장/내역)을 삭제하시겠습니까?")) return;
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (res.ok) {
+        alert("삭제되었습니다.");
+        fetchDrafts();
+        if (post.id === postId) {
+          setPost({
+            id: null,
+            status: "IDLE",
+            title: null,
+            content: null,
+            place: null,
+            images: [],
+          });
+          setProgress(0);
+        }
+      } else {
+        alert("삭제에 실패했습니다.");
+      }
+    } catch (err: any) {
+      console.error("Delete post error:", err);
+      alert("삭제 도중 오류가 발생했습니다: " + err.message);
     }
   };
 
@@ -338,9 +554,12 @@ export function useHome() {
     const files = e.target.files;
     if (files) {
       try {
-        const compressPromises = Array.from(files).map((file) => compressImage(file));
-        const base64Images = await Promise.all(compressPromises);
-        setUploadedImages((prev) => [...prev, ...base64Images]);
+        const uploadPromises = Array.from(files).map(async (file) => {
+          const base64 = await compressImage(file);
+          return `${base64}#name=${encodeURIComponent(file.name)}`;
+        });
+        const newImages = await Promise.all(uploadPromises);
+        setUploadedImages((prev) => [...prev, ...newImages]);
       } catch (err) {
         console.error("Failed to upload and compress images:", err);
       }
@@ -394,6 +613,7 @@ export function useHome() {
       });
 
       startPolling(data.postId);
+      fetchDrafts();
 
     } catch (err: any) {
       setPost({
@@ -450,6 +670,7 @@ export function useHome() {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
           }
+          fetchDrafts();
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -484,32 +705,6 @@ export function useHome() {
   };
 
   const handleSeleniumTest = async () => {
-    if (!session?.access_token) return;
-
-    if (isTestingSelenium) {
-      wasAbortedRef.current = true;
-      try {
-        const res = await fetch("/api/test/selenium", {
-          method: "DELETE",
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
-          }
-        });
-        if (res.ok) {
-          alert("셀레니움 테스트가 중단되었습니다.");
-        } else {
-          const data = await res.json();
-          alert(data.error || "테스트 중단 중 오류가 발생했습니다.");
-        }
-      } catch (err) {
-        console.error("Cancel selenium test error:", err);
-      } finally {
-        setIsTestingSelenium(false);
-        wasAbortedRef.current = false;
-      }
-      return;
-    }
-
     if (!naverBlogId) {
       alert("블로그 ID를 먼저 설정해주세요.");
       setIsProfileModalOpen(true);
@@ -517,33 +712,37 @@ export function useHome() {
     }
     
     setIsTestingSelenium(true);
-    wasAbortedRef.current = false;
     try {
-      const res = await fetch("/api/test/selenium", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      const data = await res.json();
-      
-      if (data.aborted || wasAbortedRef.current) {
+      const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
+      if (!pingRes || !pingRes.ok) {
+        alert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 가이드를 확인하여 프로그램을 먼저 실행해 주세요.");
+        setIsTokenModalOpen(true);
+        setTokenModalTab("install");
         return;
       }
 
-      if (!res.ok) {
-        throw new Error(data.error || "테스트 요청 실패");
+      const runRes = await fetch("http://localhost:5000/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blogId: naverBlogId,
+          title: "블로그 자동화 프로그램 테스트",
+          content: "안녕하세요!\n이 글은 블로그 자동 등록 프로그램이 정상적으로 실행되는지 테스트하기 위해 자동으로 작성된 글입니다.\n이 글이 보이신다면 프로그램이 성공적으로 연동된 것입니다.",
+          place: "서울특별시청",
+          images: []
+        })
+      });
+
+      if (runRes.ok) {
+        alert("성공: 로컬 PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.");
+      } else {
+        alert("오류: 자동화 프로그램 실행 요청이 실패했습니다.");
       }
-      alert("셀레니움 테스트가 성공적으로 완료되었습니다! 임시 저장 글이 생성되었습니다.");
     } catch (err: any) {
-      if (wasAbortedRef.current) {
-        return;
-      }
-      console.error("Selenium test error:", err);
-      alert(err.message || "셀레니움 테스트 중 오류가 발생했습니다.");
+      console.error("Local Selenium test error:", err);
+      alert("에러: 자동화 프로그램과 통신할 수 없습니다. " + err.message);
     } finally {
       setIsTestingSelenium(false);
-      wasAbortedRef.current = false;
     }
   };
 
@@ -615,5 +814,14 @@ export function useHome() {
     selectedGeminiModel,
     setSelectedGeminiModel,
     fetchGeminiModels,
+    drafts,
+    setDrafts,
+    isDraftListModalOpen,
+    setIsDraftListModalOpen,
+    isSavingDraft,
+    fetchDrafts,
+    handleSaveDraft,
+    handleLoadPost,
+    handleDeletePost,
   };
 }

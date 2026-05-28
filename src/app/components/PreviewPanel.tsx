@@ -8,10 +8,13 @@ type PreviewPanelProps = {
   progress: number;
   handleReset: () => void;
   naverBlogId: string;
+  setIsTokenModalOpen: (open: boolean) => void;
+  setTokenModalTab: (tab: "install" | "token") => void;
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
-  const { post, progress, handleReset, naverBlogId } = props;
+  const { post, progress, handleReset, naverBlogId, setIsTokenModalOpen, setTokenModalTab } = props;
+  const [isRegistering, setIsRegistering] = React.useState(false);
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex-1 flex flex-col min-h-[500px] bg-white border border-[#e4e8eb] shadow-xs">
@@ -81,39 +84,62 @@ export function PreviewPanel(props: PreviewPanelProps) {
             
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  const event = new CustomEvent("BLOG_AUTO_WRITE_INJECT", {
-                    detail: {
-                      title: post.title,
-                      content: post.content,
-                      images: post.images || [],
-                      place: post.place,
-                      blogId: naverBlogId
+                disabled={isRegistering}
+                onClick={async () => {
+                  if (!naverBlogId) {
+                    alert("블로그 ID가 설정되지 않았습니다. 우측 상단 계정 메뉴에서 블로그 ID를 먼저 설정해 주세요.");
+                    return;
+                  }
+
+                  setIsRegistering(true);
+                  try {
+                    const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
+                    if (!pingRes || !pingRes.ok) {
+                      alert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 메뉴를 클릭하여 다운로드 및 실행 방법을 확인해 주세요.");
+                      setTokenModalTab("install");
+                      setIsTokenModalOpen(true);
+                      return;
                     }
-                  });
 
-                  let handled = false;
-                  const ackListener = () => {
-                    handled = true;
-                    window.removeEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
-                  };
-                  window.addEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
+                    const runRes = await fetch("http://localhost:5000/run", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        blogId: naverBlogId,
+                        title: post.title,
+                        content: post.content,
+                        place: post.place,
+                        images: post.images || []
+                      })
+                    });
 
-                  window.dispatchEvent(event);
-
-                  setTimeout(() => {
-                    if (!handled) {
-                      window.removeEventListener("BLOG_AUTO_WRITE_INJECT_ACK", ackListener);
-                      alert("오류: BlogAutoWrite Helper 크롬 익스텐션이 설치되어 있지 않거나 활성화되지 않았습니다. 익스텐션을 설치 및 활성화한 후 시도해 주세요.");
+                    if (runRes.ok) {
+                      alert("성공: PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.");
+                    } else {
+                      alert("오류: 자동화 프로그램 실행 요청이 실패했습니다.");
                     }
-                  }, 300);
+                  } catch (e: any) {
+                    console.error("Local write trigger error:", e);
+                    alert("에러: 자동화 프로그램과 통신할 수 없습니다. " + e.message);
+                  } finally {
+                    setIsRegistering(false);
+                  }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#03c75a] hover:bg-[#02b34f] text-white text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#03c75a] hover:bg-[#02b34f] text-white text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                블로그 글쓰기
+                {isRegistering ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    <span>등록 요청 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <span>블로그 자동 등록</span>
+                  </>
+                )}
               </button>
               <span className="text-[10px] font-mono text-[#777] bg-gray-100 px-2 py-1.5 rounded border border-gray-200/50 select-all">
                 ID: {post.id?.substring(0, 8)}...

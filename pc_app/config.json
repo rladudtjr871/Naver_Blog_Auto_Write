@@ -1,0 +1,17 @@
+{
+  "naver_editor_selectors": {
+    "title_input": ".se-section-documentTitle, .se-section-documentTitle [contenteditable='true'], .se-document-title .se-placeholder, .se-document-title [contenteditable='true']",
+    "content_editable": ".se-section-text, .se-section-text [contenteditable='true'], .se-content [contenteditable='true']",
+    "editor_focus_area": ".se-canvas, .se-container, .se-section-text",
+    "image_upload_trigger": ".se-image-toolbar-button, .se-toolbar-button-image",
+    "popup_cancel_button": ".se-popup-button-cancel",
+    "help_close_button": ".se-help-panel-close-button",
+    "save_button": ".save_btn__bzc5B",
+    "placeholder_check": ".se-placeholder"
+  },
+  "macro_settings": {
+    "typing_delay_ms": 10,
+    "paragraph_delay_ms": 300,
+    "image_insertion_delay_ms": 1500
+  }
+}
