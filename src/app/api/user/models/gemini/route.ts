@@ -42,16 +42,27 @@ export async function GET(request: Request) {
       });
     }
 
+    const ALLOWED_GEMINI_MODELS = [
+      "gemini-3.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-pro-latest",
+      "gemini-flash-latest"
+    ];
+
     const data = await response.json();
     const modelsList: any[] = [];
 
     if (data.models && Array.isArray(data.models)) {
       data.models.forEach((model: any) => {
         const modelId = model.name.replace("models/", "");
-        // Filter: only models that support content generation and are branded 'gemini'
+        // Filter: only models that support content generation and are on the allowed list
         if (
           model.supportedGenerationMethods?.includes("generateContent") &&
-          modelId.toLowerCase().includes("gemini")
+          ALLOWED_GEMINI_MODELS.includes(modelId)
         ) {
           modelsList.push({
             id: modelId,
@@ -59,6 +70,11 @@ export async function GET(request: Request) {
             description: model.description || ""
           });
         }
+      });
+
+      // Sort models according to the ALLOWED_GEMINI_MODELS order
+      modelsList.sort((a, b) => {
+        return ALLOWED_GEMINI_MODELS.indexOf(a.id) - ALLOWED_GEMINI_MODELS.indexOf(b.id);
       });
     }
 
