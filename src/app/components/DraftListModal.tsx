@@ -62,7 +62,7 @@ export function DraftListModal(props: DraftListModalProps) {
       <div className="naver-panel w-full max-w-3xl rounded-2xl p-6 flex flex-col gap-4 bg-white border border-[#e4e8eb] shadow-lg max-h-[85vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-[#f2f4f6]">
+        <div className="flex items-center justify-between pb-3.5 border-b border-[#f2f4f6]">
           <h3 className="text-sm font-bold text-[#1e1e1e] flex items-center gap-2">
             <span className="w-1 h-3.5 bg-[#03c75a] rounded-full inline-block" />
             임시 저장 및 생성 내역 목록
@@ -108,7 +108,7 @@ export function DraftListModal(props: DraftListModalProps) {
                         <span className="text-[10px] text-gray-400 font-mono">
                           {formatDate(item.createdAt)}
                         </span>
-                        
+
                         {isDraft && (
                           <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold text-[9px]">
                             임시저장
@@ -130,7 +130,7 @@ export function DraftListModal(props: DraftListModalProps) {
                           </span>
                         )}
                       </div>
-                      
+
                       <h4 className="text-xs font-bold text-[#1e1e1e] truncate pr-2" title={subject}>
                         {subject}
                       </h4>
