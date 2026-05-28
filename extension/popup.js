@@ -4,7 +4,6 @@ let cachedBlogId = "";
 let cachedServerUrl = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const serverUrlInput = document.getElementById("serverUrl");
   const postIdInput = document.getElementById("postId");
   const accessTokenInput = document.getElementById("accessToken");
   const syncStatusSpan = document.getElementById("syncStatus");
@@ -122,7 +121,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         cachedServerUrl = "http://localhost:3000";
       }
-      if (serverUrlInput) serverUrlInput.value = cachedServerUrl;
 
       if (result.blogId) {
         cachedBlogId = result.blogId;
@@ -139,19 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 4. Save manual token and server url changes
-  if (serverUrlInput) {
-    serverUrlInput.addEventListener("input", () => {
-      const url = serverUrlInput.value.trim();
-      cachedServerUrl = url;
-      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ serverUrl: url }, () => {
-          syncTokenFromTab();
-        });
-      }
-    });
-  }
-
+  // 4. Save manual token changes
   accessTokenInput.addEventListener("input", () => {
     const token = accessTokenInput.value.trim();
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
@@ -391,7 +377,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         ) {
           const origin = url.origin;
           cachedServerUrl = origin;
-          if (serverUrlInput) serverUrlInput.value = origin;
           chrome.storage.local.set({ serverUrl: origin });
         }
       } catch (e) {
