@@ -127,8 +127,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         fetchProfileAndSyncBlogId();
       }
 
-      // Auto-sync token once config is loaded
-      syncTokenFromTab();
+      // Auto-detect server URL from the active tab and then sync token
+      autoDetectServerUrl();
     });
   }
 
@@ -342,6 +342,43 @@ document.addEventListener("DOMContentLoaded", async () => {
         chrome.storage.local.set({ blogId });
       }
     }
+  }
+
+  function autoDetectServerUrl() {
+    if (typeof chrome === "undefined" || !chrome.tabs) {
+      syncTokenFromTab();
+      return;
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError || !tabs || tabs.length === 0) {
+        syncTokenFromTab();
+        return;
+      }
+      const activeTab = tabs[0];
+      if (!activeTab.url) {
+        syncTokenFromTab();
+        return;
+      }
+
+      try {
+        const url = new URL(activeTab.url);
+        const hostname = url.hostname;
+        // Check if viewing dashboard page (localhost, 127.0.0.1, or *.vercel.app)
+        if (
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname.endsWith(".vercel.app")
+        ) {
+          const origin = url.origin;
+          serverUrlInput.value = origin;
+          chrome.storage.local.set({ serverUrl: origin });
+        }
+      } catch (e) {
+        // Ignore
+      }
+      syncTokenFromTab();
+    });
   }
 });
 
