@@ -7,6 +7,7 @@ import { GenerationForm } from "./components/GenerationForm";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { ApiKeyModal } from "./components/ApiKeyModal";
 import { TokenModal } from "./components/TokenModal";
+import { ProfileModal } from "./components/ProfileModal";
 
 export default function Home() {
   const homeProps = useHome();
@@ -43,6 +44,7 @@ export default function Home() {
 
       <ApiKeyModal {...homeProps} />
       <TokenModal {...homeProps} />
+      <ProfileModal {...homeProps} />
     </div>
   );
 }

@@ -9,6 +9,8 @@ type AuthViewProps = {
   setAuthEmail: (email: string) => void;
   authPassword: string;
   setAuthPassword: (pw: string) => void;
+  authNaverBlogId: string;
+  setAuthNaverBlogId: (id: string) => void;
   authMessage: string;
   setAuthMessage: (msg: string) => void;
   handleLogin: (e: React.FormEvent) => Promise<void>;
@@ -23,6 +25,8 @@ export function AuthView(props: AuthViewProps) {
     setAuthEmail,
     authPassword,
     setAuthPassword,
+    authNaverBlogId,
+    setAuthNaverBlogId,
     authMessage,
     setAuthMessage,
     handleLogin,
@@ -66,6 +70,20 @@ export function AuthView(props: AuthViewProps) {
               className="w-full bg-white border border-[#ccd2d6] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all"
             />
           </div>
+
+          {authMode === "signup" && (
+            <div>
+              <label className="block text-xs font-bold text-[#333] mb-1.5">네이버 블로그 ID</label>
+              <input
+                type="text"
+                value={authNaverBlogId}
+                onChange={(e) => setAuthNaverBlogId(e.target.value)}
+                placeholder="naver_id"
+                required
+                className="w-full bg-white border border-[#ccd2d6] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all"
+              />
+            </div>
+          )}
 
           {authMessage && (
             <p className={`text-xs p-3 rounded-lg border text-center ${

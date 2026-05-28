@@ -72,6 +72,9 @@ export function useHome() {
   const [authMessage, setAuthMessage] = useState("");
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [tokenModalTab, setTokenModalTab] = useState<"install" | "token">("install");
+  const [authNaverBlogId, setAuthNaverBlogId] = useState("");
+  const [naverBlogId, setNaverBlogId] = useState("");
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
@@ -117,12 +120,30 @@ export function useHome() {
     };
   }, []);
 
-  // 2. Fetch keys when session is established
+  // 2. Fetch keys and profile when session is established
   useEffect(() => {
     if (session) {
       fetchKeysStatus();
+      fetchProfile();
     }
   }, [session]);
+
+  const fetchProfile = async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/user/profile", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNaverBlogId(data.naverBlogId || "");
+      }
+    } catch (err) {
+      console.error("Failed to load user profile:", err);
+    }
+  };
 
   const fetchKeysStatus = async () => {
     if (!session?.access_token) return;
@@ -155,12 +176,11 @@ export function useHome() {
     }
   };
 
-  // Auth Action Handlers
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthMessage("");
-    if (!authEmail || !authPassword) {
-      setAuthMessage("이메일과 비밀번호를 입력해주세요.");
+    if (!authEmail || !authPassword || !authNaverBlogId.trim()) {
+      setAuthMessage("이메일, 비밀번호, 네이버 블로그 ID를 입력해주세요.");
       return;
     }
     setIsAuthLoading(true);
@@ -168,6 +188,11 @@ export function useHome() {
       const { data, error } = await supabase.auth.signUp({
         email: authEmail,
         password: authPassword,
+        options: {
+          data: {
+            naverBlogId: authNaverBlogId.trim(),
+          }
+        }
       });
       if (error) throw error;
       if (data.session) {
@@ -412,6 +437,12 @@ export function useHome() {
     setIsTokenModalOpen,
     tokenModalTab,
     setTokenModalTab,
+    authNaverBlogId,
+    setAuthNaverBlogId,
+    naverBlogId,
+    setNaverBlogId,
+    isProfileModalOpen,
+    setIsProfileModalOpen,
     isSdkModalOpen,
     setIsSdkModalOpen,
     apiKeys,

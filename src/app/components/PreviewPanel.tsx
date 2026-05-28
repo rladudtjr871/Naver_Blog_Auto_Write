@@ -7,10 +7,11 @@ type PreviewPanelProps = {
   post: PostState;
   progress: number;
   handleReset: () => void;
+  naverBlogId: string;
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
-  const { post, progress, handleReset } = props;
+  const { post, progress, handleReset, naverBlogId } = props;
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex-1 flex flex-col min-h-[500px] bg-white border border-[#e4e8eb] shadow-xs">
@@ -85,7 +86,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
                     detail: {
                       title: post.title,
                       content: post.content,
-                      images: post.images || []
+                      images: post.images || [],
+                      blogId: naverBlogId
                     }
                   });
 

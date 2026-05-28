@@ -79,7 +79,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           const token = results[0].result;
           accessTokenInput.value = token;
           updateSyncStatus(true, "자동 동기화됨");
-          chrome.storage.local.set({ accessToken: token });
+          chrome.storage.local.set({ accessToken: token }, () => {
+            fetchProfileAndSyncBlogId();
+          });
         } else {
           // If tab exists but no token is found, user might be logged out
           updateSyncStatus(false, "로그인 필요");
@@ -88,33 +90,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Helper to fetch profile from server and sync blogId
+  async function fetchProfileAndSyncBlogId() {
+    const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
+    const token = accessTokenInput.value.trim();
+    if (!serverUrl || !token) return;
+
+    try {
+      const response = await fetch(`${serverUrl}/api/user/profile`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.naverBlogId) {
+          blogIdInput.value = data.naverBlogId;
+          chrome.storage.local.set({ blogId: data.naverBlogId });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch user profile for blog ID:", e);
+    }
+  }
+
   // 3. Load saved settings from Chrome Storage
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["serverUrl", "blogId", "postId", "accessToken"], (result) => {
       if (result.serverUrl) serverUrlInput.value = result.serverUrl;
       if (result.blogId) {
         blogIdInput.value = result.blogId;
-      } else {
-        autoDetectBlogId();
       }
       if (result.postId) postIdInput.value = result.postId;
       if (result.accessToken) {
         accessTokenInput.value = result.accessToken;
         updateSyncStatus(true, "저장됨");
+        fetchProfileAndSyncBlogId();
       }
 
       // Auto-sync token once config is loaded
       syncTokenFromTab();
     });
   }
-
-  // Save manual blogId changes
-  blogIdInput.addEventListener("input", () => {
-    const blogId = blogIdInput.value.trim();
-    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ blogId });
-    }
-  });
 
   // Open Naver Blog Write editor window
   openEditorBtn.addEventListener("click", () => {
@@ -135,7 +152,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   accessTokenInput.addEventListener("input", () => {
     const token = accessTokenInput.value.trim();
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ accessToken: token });
+      chrome.storage.local.set({ accessToken: token }, () => {
+        if (token) {
+          fetchProfileAndSyncBlogId();
+        }
+      });
     }
     if (token) {
       updateSyncStatus(true, "수동 입력됨");

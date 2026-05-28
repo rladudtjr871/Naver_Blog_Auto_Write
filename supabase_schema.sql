@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS "User" (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
+    "naverBlogId" TEXT,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -168,9 +169,16 @@ CREATE POLICY "Users can manage images in their own BlogPosts" ON "Image"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public."User" (id, email, "createdAt", "updatedAt")
-    VALUES (new.id, new.email, COALESCE(new.created_at, now()), now())
-    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public."User" (id, email, "naverBlogId", "createdAt", "updatedAt")
+    VALUES (
+        new.id, 
+        new.email, 
+        (new.raw_user_meta_data->>'naverBlogId'), 
+        COALESCE(new.created_at, now()), 
+        now()
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET "naverBlogId" = EXCLUDED."naverBlogId", "updatedAt" = now();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

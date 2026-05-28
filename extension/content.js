@@ -98,25 +98,35 @@ if (isDashboard) {
     // Acknowledge the message immediately so the web page knows the extension is installed
     window.dispatchEvent(new CustomEvent("BLOG_AUTO_WRITE_INJECT_ACK"));
 
-    const { title, content, images } = e.detail;
+    const { title, content, images, blogId: eventBlogId } = e.detail;
 
-    // Get the Naver Blog ID from extension storage
-    chrome.storage.local.get("blogId", (result) => {
-      const blogId = result.blogId;
-      if (!blogId) {
-        alert("오류: 크롬 익스텐션 설정에서 네이버 블로그 ID를 먼저 기입해 주세요.");
-        return;
-      }
-
-      // Store pending injection in local storage
+    // Use event blog ID if passed from the dashboard directly
+    if (eventBlogId) {
       chrome.storage.local.set({
         pendingInjection: { title, content, images }
       }, () => {
-        // Open the write editor URL
-        const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
+        const writeUrl = `https://blog.naver.com/${eventBlogId}?Redirect=Write&`;
         window.open(writeUrl, "_blank");
       });
-    });
+    } else {
+      // Get the Naver Blog ID from extension storage
+      chrome.storage.local.get("blogId", (result) => {
+        const blogId = result.blogId;
+        if (!blogId) {
+          alert("오류: 크롬 익스텐션 설정에서 네이버 블로그 ID를 먼저 기입해 주세요.");
+          return;
+        }
+
+        // Store pending injection in local storage
+        chrome.storage.local.set({
+          pendingInjection: { title, content, images }
+        }, () => {
+          // Open the write editor URL
+          const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;
+          window.open(writeUrl, "_blank");
+        });
+      });
+    }
   });
 }
 

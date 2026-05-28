@@ -7,11 +7,12 @@ type HeaderProps = {
   setIsSdkModalOpen: (open: boolean) => void;
   setIsTokenModalOpen: (open: boolean) => void;
   setTokenModalTab: (tab: "install" | "token") => void;
+  setIsProfileModalOpen: (open: boolean) => void;
   handleLogout: () => Promise<void>;
 };
 
 export function Header(props: HeaderProps) {
-  const { session, setIsSdkModalOpen, setIsTokenModalOpen, setTokenModalTab, handleLogout } = props;
+  const { session, setIsSdkModalOpen, setIsTokenModalOpen, setTokenModalTab, setIsProfileModalOpen, handleLogout } = props;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +144,19 @@ export function Header(props: HeaderProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                   </svg>
                   <span>익스텐션 토큰 발급</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    setIsProfileModalOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-2.5 transition-all cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>회원정보 수정</span>
                 </button>
               </div>
 
