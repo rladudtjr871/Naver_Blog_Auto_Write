@@ -13,6 +13,7 @@ type ProfileModalProps = {
 export function ProfileModal(props: ProfileModalProps) {
   const { isProfileModalOpen, setIsProfileModalOpen, session, naverBlogId, setNaverBlogId } = props;
   const [blogIdInput, setBlogIdInput] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
@@ -21,6 +22,7 @@ export function ProfileModal(props: ProfileModalProps) {
   useEffect(() => {
     if (isProfileModalOpen) {
       setBlogIdInput(naverBlogId);
+      setIsEditing(false);
       setMessage("");
       setIsSuccess(false);
     }
@@ -60,6 +62,7 @@ export function ProfileModal(props: ProfileModalProps) {
       setNaverBlogId(data.naverBlogId);
       setIsSuccess(true);
       setMessage("회원정보가 성공적으로 수정되었습니다.");
+      setIsEditing(false);
       
       // Auto close after 1.5 seconds
       setTimeout(() => {
@@ -108,14 +111,30 @@ export function ProfileModal(props: ProfileModalProps) {
 
           <div>
             <label className="block text-xs font-bold text-[#333] mb-1.5">네이버 블로그 ID</label>
-            <input
-              type="text"
-              value={blogIdInput}
-              onChange={(e) => setBlogIdInput(e.target.value)}
-              placeholder="naver_id"
-              required
-              className="w-full bg-white border border-[#ccd2d6] rounded-xl px-3.5 py-2.5 text-xs text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={blogIdInput}
+                onChange={(e) => setBlogIdInput(e.target.value)}
+                placeholder="naver_id"
+                required
+                disabled={!isEditing}
+                className={`flex-1 border rounded-xl px-3.5 py-2.5 text-xs outline-none transition-all ${
+                  isEditing 
+                    ? "bg-white border-[#ccd2d6] text-[#1e1e1e] focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a]" 
+                    : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
+              />
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-white hover:bg-gray-50 border border-[#ccd2d6] hover:border-gray-300 text-xs font-bold rounded-xl text-[#333] transition-all cursor-pointer"
+                >
+                  수정
+                </button>
+              )}
+            </div>
           </div>
 
           {message && (
@@ -139,7 +158,7 @@ export function ProfileModal(props: ProfileModalProps) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isEditing}
               className="px-5 py-2.5 bg-[#03c75a] hover:bg-[#02b34f] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
             >
               {loading ? "저장 중..." : "저장"}
