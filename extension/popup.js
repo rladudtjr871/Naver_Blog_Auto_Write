@@ -1,9 +1,9 @@
 // State management inside Popup
 let fetchedPostData = null;
 let cachedBlogId = "";
+let cachedServerUrl = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const serverUrlInput = document.getElementById("serverUrl");
   const postIdInput = document.getElementById("postId");
   const accessTokenInput = document.getElementById("accessToken");
   const syncStatusSpan = document.getElementById("syncStatus");
@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
+    const serverUrl = cachedServerUrl.trim().replace(/\/$/, "");
     if (!serverUrl) return;
 
     const matchPattern = serverUrl + "/*";
@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Helper to fetch profile from server and sync blogId
   async function fetchProfileAndSyncBlogId() {
-    const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
+    const serverUrl = cachedServerUrl.trim().replace(/\/$/, "");
     const token = accessTokenInput.value.trim();
     if (!serverUrl || !token) return;
 
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 3. Load saved settings from Chrome Storage
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["serverUrl", "blogId", "postId", "accessToken"], (result) => {
-      if (result.serverUrl) serverUrlInput.value = result.serverUrl;
+      if (result.serverUrl) cachedServerUrl = result.serverUrl;
       if (result.blogId) {
         cachedBlogId = result.blogId;
       }
@@ -149,19 +149,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Re-sync when server URL is edited
-  serverUrlInput.addEventListener("change", () => {
-    syncTokenFromTab();
-  });
+  // Server URL change listener removed as it is auto-detected
 
   // 5. Fetch post data from backend API
   fetchBtn.addEventListener("click", async () => {
-    const serverUrl = serverUrlInput.value.trim().replace(/\/$/, "");
+    const serverUrl = cachedServerUrl.trim().replace(/\/$/, "");
     const postId = postIdInput.value.trim();
     const token = accessTokenInput.value.trim();
 
-    if (!serverUrl || !postId) {
-      alert("서버 URL과 포스트 ID를 입력하세요.");
+    if (!serverUrl) {
+      alert("백엔드 서버 URL이 연동되지 않았습니다. 대시보드 로그인 상태에서 익스텐션을 다시 연동해 주세요.");
+      return;
+    }
+
+    if (!postId) {
+      alert("포스트 ID를 입력하세요.");
       return;
     }
 
@@ -371,7 +373,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           hostname.endsWith(".vercel.app")
         ) {
           const origin = url.origin;
-          serverUrlInput.value = origin;
+          cachedServerUrl = origin;
           chrome.storage.local.set({ serverUrl: origin });
         }
       } catch (e) {
