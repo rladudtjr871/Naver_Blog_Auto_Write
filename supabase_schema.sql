@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS "BlogPost" (
     "userId" UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
     title TEXT,
     content TEXT,
+    place TEXT,
     status TEXT DEFAULT 'PENDING' NOT NULL, -- PENDING, PROCESSING, COMPLETED, FAILED
     "errorMessage" TEXT,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -189,4 +190,7 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
 
-
+-- =========================================================================
+-- [스키마 업데이트] 기존 BlogPost 테이블에 place 컬럼 추가 DDL
+-- =========================================================================
+-- ALTER TABLE "BlogPost" ADD COLUMN IF NOT EXISTS "place" TEXT;

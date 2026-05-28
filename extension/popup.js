@@ -264,7 +264,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         data: {
           title: fetchedPostData.title,
           content: fetchedPostData.content,
-          images: fetchedPostData.images || []
+          images: fetchedPostData.images || [],
+          place: fetchedPostData.place
         } 
       }, (response) => {
         injectBtn.textContent = "네이버 블로그 주입하기";
@@ -291,7 +292,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         pendingInjection: {
           title: fetchedPostData.title,
           content: fetchedPostData.content,
-          images: fetchedPostData.images || []
+          images: fetchedPostData.images || [],
+          place: fetchedPostData.place
         }
       }, () => {
         const writeUrl = `https://blog.naver.com/${blogId}?Redirect=Write&`;

@@ -30,11 +30,11 @@ try {
 if (window.self === window.top) {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "INJECT_POST") {
-      const { title, content, images } = request.data;
+      const { title, content, images, place } = request.data;
 
       // Case A: Direct editor tab (not inside blog.naver.com wrapper)
       if (window.location.hostname.includes("editor.blog.naver.com")) {
-        injectBlogContent(title, content, images)
+        injectBlogContent(title, content, images, place)
           .then(() => sendResponse({ success: true }))
           .catch((err) => sendResponse({ success: false, error: err.message }));
         return true;
@@ -65,8 +65,8 @@ if (window.self === window.top) {
 if (window.self !== window.top && window.location.hostname.includes("editor.blog.naver.com")) {
   window.addEventListener("message", (e) => {
     if (e.data && e.data.action === "INJECT_POST") {
-      const { title, content, images } = e.data.data;
-      injectBlogContent(title, content, images)
+      const { title, content, images, place } = e.data.data;
+      injectBlogContent(title, content, images, place)
         .then(() => {
           window.parent.postMessage({ action: "INJECT_POST_RESPONSE", response: { success: true } }, "*");
         })
@@ -86,7 +86,7 @@ if (window.location.hostname.includes("editor.blog.naver.com")) {
       chrome.storage.local.remove("pendingInjection", () => {
         console.log("Pending injection data consumed.");
       });
-      waitForEditorAndInject(data.title, data.content, data.images);
+      waitForEditorAndInject(data.title, data.content, data.images, data.place);
     }
   });
 }
@@ -98,12 +98,12 @@ if (isDashboard) {
     // Acknowledge the message immediately so the web page knows the extension is installed
     window.dispatchEvent(new CustomEvent("BLOG_AUTO_WRITE_INJECT_ACK"));
 
-    const { title, content, images, blogId: eventBlogId } = e.detail;
+    const { title, content, images, place, blogId: eventBlogId } = e.detail;
 
     // Use event blog ID if passed from the dashboard directly
     if (eventBlogId) {
       chrome.storage.local.set({
-        pendingInjection: { title, content, images }
+        pendingInjection: { title, content, images, place }
       }, () => {
         const writeUrl = `https://blog.naver.com/${eventBlogId}?Redirect=Write&`;
         window.open(writeUrl, "_blank");
@@ -185,7 +185,7 @@ async function focusAndSetCursor(element, selectorString) {
 /**
  * Execute typing macro for Naver SmartEditor ONE
  */
-async function injectBlogContent(title, content, images) {
+async function injectBlogContent(title, content, images, place) {
   const selectors = editorConfig.naver_editor_selectors;
   const settings = editorConfig.macro_settings;
 
@@ -279,6 +279,104 @@ async function injectBlogContent(title, content, images) {
     }
   }
 
+  // 3.5 Auto-insert Map/Place if place is provided
+  if (place && place.trim()) {
+    try {
+      console.log(`Auto-inserting map for place: ${place}`);
+      
+      // 1) Find and click Place (장소) button in the toolbar
+      let placeBtn = document.querySelector(".se-toolbar-button-place") || 
+                     Array.from(document.querySelectorAll("button")).find(b => b.textContent.includes("장소"));
+      
+      if (placeBtn) {
+        placeBtn.click();
+        await sleep(1500); // Wait for modal
+        
+        // 2) Find search input in the place popup
+        let searchInput = document.querySelector("input[placeholder*='장소']") || 
+                          document.querySelector(".se-place-search-input") || 
+                          document.querySelector("input[placeholder*='검색']");
+                          
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.click();
+          
+          // Clear input first
+          searchInput.value = "";
+          
+          // Emulate character-by-character typing for place name
+          for (let k = 0; k < place.length; k++) {
+            const char = place[k];
+            document.execCommand("insertText", false, char);
+            const delay = Math.floor(Math.random() * (100 - 10 + 1)) + 10;
+            await sleep(delay);
+          }
+          await sleep(500);
+          
+          // Press Enter to search
+          const enterEvent = new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          searchInput.dispatchEvent(enterEvent);
+          await sleep(2000); // Wait for search results
+          
+          // 3) Find the first search result item
+          let firstResult = document.querySelector(".se-place-search-result-item") || 
+                            document.querySelector(".se-place-list-item");
+                            
+          if (firstResult) {
+            // Trigger hover events to reveal the "추가" button (in case CSS or React requires it)
+            console.log("Simulating hover on the first result item...");
+            firstResult.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            firstResult.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            await sleep(500);
+
+            // Find "추가" button inside the first result
+            let addBtn = firstResult.querySelector("button") || 
+                         Array.from(firstResult.querySelectorAll("button")).find(b => b.textContent.includes("추가")) || 
+                         firstResult;
+                         
+            addBtn.click();
+            await sleep(1000); // Wait for list update
+            
+            // 4) Click confirm "확인" button
+            let confirmBtn = Array.from(document.querySelectorAll("button")).find(b => b.textContent === "확인") || 
+                             document.querySelector(".se-popup-button-confirm");
+                             
+            if (confirmBtn) {
+              confirmBtn.click();
+              console.log("Map inserted successfully!");
+              await sleep(1500);
+            } else {
+              console.warn("Place confirm button not found.");
+            }
+          } else {
+            console.warn("No place search results found.");
+            // Close popup if possible (click cancel or close)
+            let closeBtn = document.querySelector(".se-popup-button-close") || 
+                           Array.from(document.querySelectorAll("button")).find(b => b.textContent.includes("취소") || b.textContent.includes("닫기"));
+            if (closeBtn) closeBtn.click();
+            throw new Error(`장소 검색 결과가 없습니다: '${place}'`);
+          }
+        } else {
+          console.warn("Place search input not found.");
+        }
+      } else {
+        console.warn("Place button on toolbar not found.");
+      }
+    } catch (placeErr) {
+      console.error("Failed to auto-insert map:", placeErr);
+      if (placeErr.message && placeErr.message.includes("장소 검색 결과가 없습니다")) {
+        throw placeErr;
+      }
+    }
+  }
+
   // 4. Click Save Button if it exists
   if (selectors.save_button) {
     console.log("Checking for save button...");
@@ -369,7 +467,7 @@ function sleep(ms) {
 /**
  * Polls for editor selectors to be loaded and ready, then performs autoinjection.
  */
-async function waitForEditorAndInject(title, content, images) {
+async function waitForEditorAndInject(title, content, images, place) {
   console.log("Waiting for Naver editor elements to be ready...");
   let attempts = 0;
   const maxAttempts = 40; // 40 attempts * 500ms = 20 seconds max wait
@@ -398,7 +496,7 @@ async function waitForEditorAndInject(title, content, images) {
       if (titleEl && contentEl) {
         console.log("Editor elements found! Injecting content automatically...");
         try {
-          await injectBlogContent(title, content, images);
+          await injectBlogContent(title, content, images, place);
           console.log("Automatic injection successful!");
         } catch (err) {
           console.error("Automatic injection failed:", err);

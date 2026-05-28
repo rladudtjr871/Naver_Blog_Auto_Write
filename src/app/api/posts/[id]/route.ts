@@ -38,6 +38,7 @@ export async function GET(
       status: post.status,
       title: post.title,
       content: post.content,
+      place: post.place,
       errorMessage: post.errorMessage,
       images: (post.images || []).map((img: any) => ({
         id: img.id,

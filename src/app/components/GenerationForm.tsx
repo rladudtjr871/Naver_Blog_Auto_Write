@@ -10,6 +10,8 @@ type GenerationFormProps = {
   setModel: (val: string) => void;
   subject: string;
   setSubject: (val: string) => void;
+  place: string;
+  setPlace: (val: string) => void;
   references: string[];
   setReferences: React.Dispatch<React.SetStateAction<string[]>>;
   uploadedImages: string[];
@@ -29,6 +31,8 @@ export function GenerationForm(props: GenerationFormProps) {
     setModel,
     subject,
     setSubject,
+    place,
+    setPlace,
     references,
     setReferences,
     uploadedImages,
@@ -122,6 +126,24 @@ export function GenerationForm(props: GenerationFormProps) {
             className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
           />
         </div>
+
+        {/* Blog Place (Conditional for 맛집, 카페, 여행) */}
+        {["맛집", "카페", "여행"].includes(category) && (
+          <div className="animate-slide-down-fade origin-top">
+            <label className="block text-xs font-bold text-[#333] mb-2">
+              장소 <span className="text-[#03c75a]">(네이버 지도 자동 검색어)</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+              placeholder="예: 서울특별시청, 제주 흑돈가 본점 등 정확한 명칭"
+              className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
+            />
+          </div>
+        )}
 
         {/* Benchmarking Examples */}
         <div className="flex flex-col gap-2">

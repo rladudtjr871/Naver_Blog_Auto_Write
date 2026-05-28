@@ -8,10 +8,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  */
 export async function generateBlogContent(postId: string, provider: string, guideText: string) {
   try {
-    // 1. Fetch user ID and associated images using supabaseAdmin
+    // 1. Fetch user ID, place and associated images using supabaseAdmin
     const { data: post, error: postErr } = await supabaseAdmin
       .from("BlogPost")
-      .select("userId, images:Image(*)")
+      .select("userId, place, images:Image(*)")
       .eq("id", postId)
       .single();
 
@@ -19,6 +19,7 @@ export async function generateBlogContent(postId: string, provider: string, guid
       throw postErr || new Error("BlogPost not found");
     }
     const userId = post.userId;
+    const place = post.place;
 
     // 2. Update status to PROCESSING
     const { error: statusErr } = await supabaseAdmin
@@ -88,6 +89,10 @@ export async function generateBlogContent(postId: string, provider: string, guid
       });
     } else {
       userPrompt += `\n(제공된 예시 블로그가 없습니다. 주제에 맞춰 자유롭게 작성하세요.)\n`;
+    }
+
+    if (place) {
+      userPrompt += `\n\n지정된 장소 정보 (해당 장소를 방문한 경험, 음식 맛, 서비스, 분위기 또는 방문 목적을 글에 자연스럽고 상세히 묘사해 주세요): "${place}"\n`;
     }
 
     if (provider.toUpperCase() === "OPENAI") {

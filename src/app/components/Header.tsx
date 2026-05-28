@@ -9,10 +9,21 @@ type HeaderProps = {
   setTokenModalTab: (tab: "install" | "token") => void;
   setIsProfileModalOpen: (open: boolean) => void;
   handleLogout: () => Promise<void>;
+  isTestingSelenium?: boolean;
+  handleSeleniumTest?: () => void;
 };
 
 export function Header(props: HeaderProps) {
-  const { session, setIsSdkModalOpen, setIsTokenModalOpen, setTokenModalTab, setIsProfileModalOpen, handleLogout } = props;
+  const { 
+    session, 
+    setIsSdkModalOpen, 
+    setIsTokenModalOpen, 
+    setTokenModalTab, 
+    setIsProfileModalOpen, 
+    handleLogout,
+    isTestingSelenium = false,
+    handleSeleniumTest = () => {}
+  } = props;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +87,25 @@ export function Header(props: HeaderProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           익스텐션 추가
+        </button>
+
+        <button
+          onClick={handleSeleniumTest}
+          className={`font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+            isTestingSelenium
+              ? "bg-amber-50 hover:bg-red-50 border border-amber-200 hover:border-red-200 text-amber-600 hover:text-red-600 group"
+              : "bg-white hover:bg-amber-50 border border-amber-200 hover:border-amber-300 text-amber-600"
+          }`}
+        >
+          {isTestingSelenium ? (
+            <div className="w-4 h-4 border-2 border-amber-500/20 border-t-amber-500 group-hover:border-red-500/20 group-hover:border-t-red-500 rounded-full animate-spin" />
+          ) : (
+            <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          {isTestingSelenium ? "실행 중 (클릭 시 중단)" : "테스트"}
         </button>
 
         {/* User Dropdown */}

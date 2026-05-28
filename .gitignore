@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# selenium test profiles
+.chrome_profile/
+

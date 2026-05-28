@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const user = await getAuthUser(request);
 
     const body = await request.json();
-    const { category, subject, references, images, model } = body;
+    const { category, subject, references, images, model, place } = body;
 
     if (!subject || !subject.trim()) {
       return NextResponse.json({ error: "Subject is required" }, { status: 400 });
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       .insert({
         userId: user.id,
         status: "PENDING",
+        place: place ? place.trim() : null,
       })
       .select()
       .single();

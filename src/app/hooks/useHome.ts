@@ -13,6 +13,7 @@ export type PostState = {
   status: "IDLE" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
   title: string | null;
   content: string | null;
+  place?: string | null;
   images: string[];
   errorMessage?: string | null;
 };
@@ -81,11 +82,14 @@ export function useHome() {
   const [apiKeys, setApiKeys] = useState<ApiKeysState>({ openai: "", gemini: "" });
   const [savedKeysStatus, setSavedKeysStatus] = useState({ openai: false, gemini: false });
   const [isKeysLoading, setIsKeysLoading] = useState(false);
+  const [isTestingSelenium, setIsTestingSelenium] = useState(false);
+  const wasAbortedRef = useRef(false);
   
   // Blog Form states
   const [category, setCategory] = useState("IT/테크");
   const [model, setModel] = useState("");
   const [subject, setSubject] = useState("");
+  const [place, setPlace] = useState("");
   const [references, setReferences] = useState<string[]>([""]);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   
@@ -317,6 +321,7 @@ export function useHome() {
           references,
           images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
           model: model,
+          place,
         }),
       });
 
@@ -382,6 +387,7 @@ export function useHome() {
           status: data.status,
           title: data.title,
           content: data.content,
+          place: data.place,
           images: data.images ? data.images.map((img: any) => img.url) : [],
           errorMessage: data.errorMessage,
         });
@@ -414,12 +420,78 @@ export function useHome() {
       status: "IDLE",
       title: null,
       content: null,
+      place: null,
       images: [],
     });
     setProgress(0);
     setSubject("");
+    setPlace("");
     setReferences([""]);
     setUploadedImages([]);
+  };
+
+  const handleSeleniumTest = async () => {
+    if (!session?.access_token) return;
+
+    if (isTestingSelenium) {
+      wasAbortedRef.current = true;
+      try {
+        const res = await fetch("/api/test/selenium", {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`
+          }
+        });
+        if (res.ok) {
+          alert("셀레니움 테스트가 중단되었습니다.");
+        } else {
+          const data = await res.json();
+          alert(data.error || "테스트 중단 중 오류가 발생했습니다.");
+        }
+      } catch (err) {
+        console.error("Cancel selenium test error:", err);
+      } finally {
+        setIsTestingSelenium(false);
+        wasAbortedRef.current = false;
+      }
+      return;
+    }
+
+    if (!naverBlogId) {
+      alert("네이버 블로그 ID를 먼저 설정해주세요.");
+      setIsProfileModalOpen(true);
+      return;
+    }
+    
+    setIsTestingSelenium(true);
+    wasAbortedRef.current = false;
+    try {
+      const res = await fetch("/api/test/selenium", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      const data = await res.json();
+      
+      if (data.aborted || wasAbortedRef.current) {
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "테스트 요청 실패");
+      }
+      alert("셀레니움 테스트가 성공적으로 완료되었습니다! 임시 저장 글이 생성되었습니다.");
+    } catch (err: any) {
+      if (wasAbortedRef.current) {
+        return;
+      }
+      console.error("Selenium test error:", err);
+      alert(err.message || "셀레니움 테스트 중 오류가 발생했습니다.");
+    } finally {
+      setIsTestingSelenium(false);
+      wasAbortedRef.current = false;
+    }
   };
 
   return {
@@ -455,6 +527,8 @@ export function useHome() {
     setModel,
     subject,
     setSubject,
+    place,
+    setPlace,
     references,
     setReferences,
     uploadedImages,
@@ -468,5 +542,7 @@ export function useHome() {
     handleImageUpload,
     handleGenerate,
     handleReset,
+    isTestingSelenium,
+    handleSeleniumTest,
   };
 }

@@ -87,6 +87,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
                       title: post.title,
                       content: post.content,
                       images: post.images || [],
+                      place: post.place,
                       blogId: naverBlogId
                     }
                   });
