@@ -129,9 +129,12 @@ export async function generateBlogContent(postId: string, provider: string, guid
       const parsed = parseAiResponse(rawResult);
       generatedTitle = parsed.title;
       generatedContent = parsed.content;
-    } else if (provider.toUpperCase() === "GEMINI") {
+    } else if (provider.toUpperCase() === "GEMINI" || provider.toLowerCase().startsWith("gemini-")) {
+      const geminiModelName = provider.toLowerCase().startsWith("gemini-") 
+        ? provider.toLowerCase() 
+        : "gemini-2.5-flash";
       const ai = new GoogleGenerativeAI(apiKey);
-      const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = ai.getGenerativeModel({ model: geminiModelName });
       
       const parts: any[] = [
         { text: `${systemPrompt}\n\n${userPrompt}` }

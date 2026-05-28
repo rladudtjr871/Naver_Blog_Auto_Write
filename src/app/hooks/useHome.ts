@@ -78,6 +78,10 @@ export function useHome() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [defaultReferences, setDefaultReferences] = useState<string[]>([]);
   const [hasDefaultReferences, setHasDefaultReferences] = useState(false);
+  const [geminiModels, setGeminiModels] = useState<{ id: string; displayName: string; description: string }[]>([]);
+  const [isGeminiModelsLoading, setIsGeminiModelsLoading] = useState(false);
+  const [geminiModelsError, setGeminiModelsError] = useState("");
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState("gemini-2.5-flash");
 
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
@@ -126,13 +130,51 @@ export function useHome() {
     };
   }, []);
 
-  // 2. Fetch keys and profile when session is established
+  // 2. Fetch keys, profile, and available Gemini models when session is established
   useEffect(() => {
     if (session) {
       fetchKeysStatus();
       fetchProfile();
+      fetchGeminiModels();
     }
   }, [session]);
+
+  const fetchGeminiModels = async () => {
+    if (!session?.access_token) return;
+    setIsGeminiModelsLoading(true);
+    setGeminiModelsError("");
+    try {
+      const res = await fetch("/api/user/models/gemini", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          setGeminiModels(data.models);
+          const modelIds = data.models.map((m: any) => m.id);
+          if (!modelIds.includes(selectedGeminiModel)) {
+            if (modelIds.includes("gemini-2.5-flash")) {
+              setSelectedGeminiModel("gemini-2.5-flash");
+            } else {
+              setSelectedGeminiModel(modelIds[0]);
+            }
+          }
+        } else if (data.error) {
+          setGeminiModelsError(data.error);
+          setGeminiModels([]);
+        }
+      } else {
+        setGeminiModelsError("모델 목록을 불러오지 못했습니다.");
+      }
+    } catch (err) {
+      console.error("Failed to load Gemini models:", err);
+      setGeminiModelsError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setIsGeminiModelsLoading(false);
+    }
+  };
 
   const fetchProfile = async () => {
     if (!session?.access_token) return;
@@ -246,6 +288,9 @@ export function useHome() {
     setSession(null);
     setDefaultReferences([]);
     setHasDefaultReferences(false);
+    setGeminiModels([]);
+    setGeminiModelsError("");
+    setSelectedGeminiModel("gemini-2.5-flash");
     handleReset();
   };
 
@@ -278,6 +323,7 @@ export function useHome() {
         if (!res.ok) throw new Error("Gemini Key save failed");
       }
       await fetchKeysStatus();
+      await fetchGeminiModels();
       setApiKeys({ openai: "", gemini: "" });
       setIsSdkModalOpen(false);
     } catch (err) {
@@ -327,7 +373,7 @@ export function useHome() {
           subject,
           references,
           images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
-          model: model,
+          model: model === "GEMINI" ? selectedGeminiModel : "OPENAI",
           place,
         }),
       });
@@ -563,5 +609,11 @@ export function useHome() {
     hasDefaultReferences,
     handleLoadDefaultReferences,
     fetchProfile,
+    geminiModels,
+    isGeminiModelsLoading,
+    geminiModelsError,
+    selectedGeminiModel,
+    setSelectedGeminiModel,
+    fetchGeminiModels,
   };
 }
