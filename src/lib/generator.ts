@@ -30,11 +30,12 @@ export async function generateBlogContent(postId: string, provider: string, guid
     if (statusErr) throw statusErr;
 
     // 3. Fetch user API key for target provider
+    const dbProvider = provider.toLowerCase().startsWith("gemini") ? "GEMINI" : provider.toUpperCase();
     const { data: apiKeyRecord, error: keyErr } = await supabaseAdmin
       .from("ApiKey")
       .select("encryptedKey")
       .eq("userId", userId)
-      .eq("provider", provider.toUpperCase())
+      .eq("provider", dbProvider)
       .maybeSingle();
 
     if (keyErr) throw keyErr;
