@@ -55,26 +55,6 @@ export function Header(props: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* 임시 미노출 > 노출 시 관리자 확인 받을 것 */}
-        {/* <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsSdkModalOpen(true)}
-            className="bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <svg className="w-4 h-4 text-[#777]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-            API Key 연동
-          </button>
-
-          <button
-            onClick={() => setIsTokenModalOpen(true)}
-            className="bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <img src="/extension-icon.png" alt="Extension" className="w-4 h-4 object-contain" />
-            익스텐션 토큰
-          </button>
-        </div> */}
 
         <button
           onClick={() => {

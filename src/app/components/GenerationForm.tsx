@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { PostState } from "../hooks/useHome";
+import { MoreOptionsDropdown } from "./MoreOptionsDropdown";
+
 
 type GenerationFormProps = {
   category: string;
@@ -31,6 +33,7 @@ type GenerationFormProps = {
   setIsDraftListModalOpen: (open: boolean) => void;
   isSavingDraft: boolean;
   handleSaveDraft: () => Promise<void>;
+  fetchGeminiModels: () => Promise<void>;
 };
 
 export function GenerationForm(props: GenerationFormProps) {
@@ -62,9 +65,29 @@ export function GenerationForm(props: GenerationFormProps) {
     setIsDraftListModalOpen,
     isSavingDraft,
     handleSaveDraft,
+    fetchGeminiModels,
   } = props;
 
   const [activeExampleTab, setActiveExampleTab] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const isGenerating = post.status === "PENDING" || post.status === "PROCESSING";
+  const isRecreate = post.id !== null || post.status === "COMPLETED" || post.status === "FAILED" || post.status === "DRAFT";
+
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex flex-col gap-5 bg-white border border-[#e4e8eb] shadow-xs">
@@ -97,7 +120,7 @@ export function GenerationForm(props: GenerationFormProps) {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+              disabled={isGenerating}
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#333] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all appearance-none cursor-pointer disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
             >
               {/* <option value="IT/테크">IT / 테크</option> */}
@@ -123,7 +146,7 @@ export function GenerationForm(props: GenerationFormProps) {
             <button
               type="button"
               onClick={() => setModel("OPENAI")}
-              disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.openai}
+              disabled={isGenerating || !savedKeysStatus.openai}
               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${model === "OPENAI"
                   ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                   : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
@@ -134,7 +157,7 @@ export function GenerationForm(props: GenerationFormProps) {
             <button
               type="button"
               onClick={() => setModel("GEMINI")}
-              disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !savedKeysStatus.gemini}
+              disabled={isGenerating || !savedKeysStatus.gemini}
               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${model === "GEMINI"
                   ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] shadow-sm"
                   : "bg-white border-[#e4e8eb] text-[#555] hover:bg-gray-50"
@@ -147,11 +170,24 @@ export function GenerationForm(props: GenerationFormProps) {
           {/* Gemini Specific Model Select (Conditional) */}
           {model === "GEMINI" && savedKeysStatus.gemini && (
             <div className="animate-slide-down-fade origin-top flex flex-col gap-1.5 bg-[#fafbfc] border border-[#e4e8eb] p-3.5 rounded-xl mt-1">
-              <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-[#555]">Gemini 상세 모델 선택</label>
+              <div className="flex items-center justify-between pb-0.5">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[10px] font-bold text-[#555] select-none">Gemini 상세 모델 선택</label>
+                  <button
+                    type="button"
+                    onClick={fetchGeminiModels}
+                    disabled={isGeminiModelsLoading}
+                    className="p-0.5 hover:bg-gray-200/50 rounded-md transition-colors cursor-pointer text-gray-500 disabled:opacity-50 shrink-0 align-middle inline-flex items-center justify-center"
+                    title="모델 목록 다시 불러오기"
+                  >
+                    <svg className={`w-3.5 h-3.5 ${isGeminiModelsLoading ? "animate-spin" : ""}`} viewBox="0 0 30 30" fill="currentColor">
+                      <path d="M 15 3 C 12.053086 3 9.3294211 4.0897803 7.2558594 5.8359375 A 1.0001 1.0001 0 1 0 8.5449219 7.3652344 C 10.27136 5.9113916 12.546914 5 15 5 C 20.226608 5 24.456683 8.9136179 24.951172 14 L 22 14 L 26 20 L 30 14 L 26.949219 14 C 26.441216 7.8348596 21.297943 3 15 3 z M 4.3007812 9 L 0.30078125 15 L 3 15 C 3 21.635519 8.3644809 27 15 27 C 17.946914 27 20.670579 25.91022 22.744141 24.164062 A 1.0001 1.0001 0 1 0 21.455078 22.634766 C 19.72864 24.088608 17.453086 25 15 25 C 9.4355191 25 5 20.564481 5 15 L 8.3007812 15 L 4.3007812 9 z" />
+                    </svg>
+                  </button>
+                </div>
                 {isGeminiModelsLoading && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 border-2 border-[#03c75a]/20 border-t-[#03c75a] rounded-full animate-spin" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 border border-[#03c75a]/20 border-t-[#03c75a] rounded-full animate-spin" />
                     <span className="text-[10px] text-gray-400">조회 중...</span>
                   </div>
                 )}
@@ -170,14 +206,18 @@ export function GenerationForm(props: GenerationFormProps) {
                   <select
                     value={selectedGeminiModel}
                     onChange={(e) => setSelectedGeminiModel(e.target.value)}
-                    disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+                    disabled={isGenerating || isGeminiModelsLoading}
                     className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-xs text-[#333] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all appearance-none cursor-pointer disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
                   >
-                    {geminiModels.map((m) => (
-                      <option key={m.id} value={m.id} title={m.description}>
-                        {m.displayName}
-                      </option>
-                    ))}
+                    {isGeminiModelsLoading ? (
+                      <option value="">모델 목록을 불러오는 중...</option>
+                    ) : (
+                      geminiModels.map((m) => (
+                        <option key={m.id} value={m.id} title={m.description}>
+                          {m.displayName}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#777]">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -203,7 +243,7 @@ export function GenerationForm(props: GenerationFormProps) {
             required
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+            disabled={isGenerating}
             placeholder="예: 제주도 서귀포 흑돼지 전문점 방문 후기"
             className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
           />
@@ -220,7 +260,7 @@ export function GenerationForm(props: GenerationFormProps) {
               required
               value={place}
               onChange={(e) => setPlace(e.target.value)}
-              disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+              disabled={isGenerating}
               placeholder="예: 서울특별시청, 제주 흑돈가 본점 등 정확한 명칭"
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-sm text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
             />
@@ -235,7 +275,7 @@ export function GenerationForm(props: GenerationFormProps) {
               <button
                 type="button"
                 onClick={handleLoadDefaultReferences}
-                disabled={!hasDefaultReferences || (post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED")}
+                disabled={!hasDefaultReferences || isGenerating}
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
                   hasDefaultReferences 
                     ? "bg-[#03c75a]/10 border-[#03c75a] text-[#03c75a] hover:bg-[#03c75a]/20" 
@@ -318,7 +358,7 @@ export function GenerationForm(props: GenerationFormProps) {
                 newRefs[activeExampleTab] = e.target.value;
                 setReferences(newRefs);
               }}
-              disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+              disabled={isGenerating}
               placeholder={`예시 블로그 ${activeExampleTab + 1}의 본문 글을 복사해서 붙여넣어 주세요.`}
               rows={5}
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-xs text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all resize-none placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
@@ -341,7 +381,7 @@ export function GenerationForm(props: GenerationFormProps) {
                 multiple
                 accept="image/*"
                 onChange={handleImageUpload}
-                disabled={post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED"}
+                disabled={isGenerating}
                 className="hidden"
               />
             </label>
@@ -370,33 +410,41 @@ export function GenerationForm(props: GenerationFormProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-4 gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={post.status === "PENDING" || post.status === "PROCESSING"}
-            className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-[11px] font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            초기화
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            disabled={isSavingDraft || !subject.trim() || post.status === "PENDING" || post.status === "PROCESSING"}
-            className="col-span-1 bg-white border border-[#ccd2d6] hover:bg-gray-50 text-[11px] font-bold py-3 rounded-lg text-[#555] transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSavingDraft ? "저장 중..." : "임시 저장"}
-          </button>
+        <div className="flex items-stretch gap-2.5 pt-2">
           <button
             type="submit"
-            disabled={(post.status !== "IDLE" && post.status !== "COMPLETED" && post.status !== "FAILED") || !subject.trim() || !model}
-            className="col-span-2 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 glow-btn cursor-pointer"
+            disabled={isGenerating || !subject.trim() || !model}
+            className="flex-1 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3.5 rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 glow-btn cursor-pointer"
           >
-            AI 블로그 자동 생성
+            {isRecreate ? "AI 블로그 자동 재생성" : "AI 블로그 자동 생성"}
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </button>
+
+          {/* Dedicated relative container for the options button and its popover */}
+          <div className="relative flex items-stretch" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              disabled={isGenerating}
+              className="h-full px-4 bg-white border border-[#ccd2d6] hover:border-gray-300 hover:bg-gray-50 text-[#555] hover:text-gray-800 rounded-xl transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-extrabold select-none text-xs shadow-xs"
+              title="더 보기 옵션"
+            >
+              •••
+            </button>
+
+            {/* Dropdown Menu */}
+            <MoreOptionsDropdown
+              isMenuOpen={isMenuOpen}
+              setIsMenuOpen={setIsMenuOpen}
+              isSavingDraft={isSavingDraft}
+              isGenerating={isGenerating}
+              subject={subject}
+              handleSaveDraft={handleSaveDraft}
+              handleReset={handleReset}
+            />
+          </div>
         </div>
 
       </form>

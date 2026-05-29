@@ -8,6 +8,7 @@ type DraftListModalProps = {
   drafts: any[];
   handleLoadPost: (postId: string) => Promise<void>;
   handleDeletePost: (postId: string) => Promise<void>;
+  isDraftsLoading: boolean;
 };
 
 export function DraftListModal(props: DraftListModalProps) {
@@ -17,6 +18,7 @@ export function DraftListModal(props: DraftListModalProps) {
     drafts,
     handleLoadPost,
     handleDeletePost,
+    isDraftsLoading,
   } = props;
 
   if (!isDraftListModalOpen) return null;
@@ -78,7 +80,15 @@ export function DraftListModal(props: DraftListModalProps) {
         </div>
 
         {/* Draft List Container */}
-        <div className="overflow-y-auto flex-1 max-h-[50vh] pr-1">
+        <div className="relative overflow-y-auto flex-1 max-h-[50vh] pr-1 min-h-[200px]">
+          {/* Loading Overlay */}
+          {isDraftsLoading && (
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center gap-3 z-10 select-none">
+              <div className="w-8 h-8 border-4 border-gray-200/50 border-t-[#03c75a] rounded-full animate-spin" />
+              <p className="text-xs font-bold text-[#555]">요청을 처리하고 있습니다...</p>
+            </div>
+          )}
+
           {drafts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-[#999]">
               <svg className="w-10 h-10 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

@@ -9,6 +9,7 @@ import { ApiKeyModal } from "./components/ApiKeyModal";
 import { TokenModal } from "./components/TokenModal";
 import { ProfileModal } from "./components/ProfileModal";
 import { DraftListModal } from "./components/DraftListModal";
+import { AlertModal } from "./components/AlertModal";
 
 export default function Home() {
   const homeProps = useHome();
@@ -47,6 +48,12 @@ export default function Home() {
       <TokenModal {...homeProps} />
       <ProfileModal {...homeProps} />
       <DraftListModal {...homeProps} />
+      <AlertModal
+        isOpen={homeProps.alertState.isOpen}
+        message={homeProps.alertState.message}
+        title={homeProps.alertState.title}
+        onClose={homeProps.closeAlert}
+      />
     </div>
   );
 }

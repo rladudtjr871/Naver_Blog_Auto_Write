@@ -10,10 +10,11 @@ type PreviewPanelProps = {
   naverBlogId: string;
   setIsTokenModalOpen: (open: boolean) => void;
   setTokenModalTab: (tab: "install" | "token") => void;
+  showAlert: (message: string, title?: string) => void;
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
-  const { post, progress, handleReset, naverBlogId, setIsTokenModalOpen, setTokenModalTab } = props;
+  const { post, progress, handleReset, naverBlogId, setIsTokenModalOpen, setTokenModalTab, showAlert } = props;
   const [isRegistering, setIsRegistering] = React.useState(false);
 
   return (
@@ -87,7 +88,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
                 disabled={isRegistering}
                 onClick={async () => {
                   if (!naverBlogId) {
-                    alert("블로그 ID가 설정되지 않았습니다. 우측 상단 계정 메뉴에서 블로그 ID를 먼저 설정해 주세요.");
+                    showAlert("블로그 ID가 설정되지 않았습니다. 우측 상단 계정 메뉴에서 블로그 ID를 먼저 설정해 주세요.");
                     return;
                   }
 
@@ -95,7 +96,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
                   try {
                     const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
                     if (!pingRes || !pingRes.ok) {
-                      alert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 메뉴를 클릭하여 다운로드 및 실행 방법을 확인해 주세요.");
+                      showAlert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 메뉴를 클릭하여 다운로드 및 실행 방법을 확인해 주세요.");
                       setTokenModalTab("install");
                       setIsTokenModalOpen(true);
                       return;
@@ -114,13 +115,13 @@ export function PreviewPanel(props: PreviewPanelProps) {
                     });
 
                     if (runRes.ok) {
-                      alert("성공: PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.");
+                      showAlert("성공: PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.", "성공");
                     } else {
-                      alert("오류: 자동화 프로그램 실행 요청이 실패했습니다.");
+                      showAlert("오류: 자동화 프로그램 실행 요청이 실패했습니다.", "오류");
                     }
                   } catch (e: any) {
                     console.error("Local write trigger error:", e);
-                    alert("에러: 자동화 프로그램과 통신할 수 없습니다. " + e.message);
+                    showAlert("에러: 자동화 프로그램과 통신할 수 없습니다. " + e.message, "에러");
                   } finally {
                     setIsRegistering(false);
                   }
@@ -148,7 +149,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
                 onClick={() => {
                   if (post.id) {
                     navigator.clipboard.writeText(post.id);
-                    alert("포스트 ID가 클립보드에 복사되었습니다.");
+                    showAlert("포스트 ID가 클립보드에 복사되었습니다.");
                   }
                 }}
                 className="p-2 bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] rounded-lg transition-colors shadow-sm cursor-pointer"

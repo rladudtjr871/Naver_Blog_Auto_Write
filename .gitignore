@@ -42,4 +42,5 @@ next-env.d.ts
 
 # selenium test profiles
 .chrome_profile/
+temp_chrome_profile/
 

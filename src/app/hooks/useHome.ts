@@ -10,7 +10,7 @@ export type ApiKeysState = {
 
 export type PostState = {
   id: string | null;
-  status: "IDLE" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  status: "IDLE" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "DRAFT";
   title: string | null;
   content: string | null;
   place?: string | null;
@@ -77,6 +77,7 @@ export function useHome() {
   const [naverBlogId, setNaverBlogId] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [drafts, setDrafts] = useState<any[]>([]);
+  const [isDraftsLoading, setIsDraftsLoading] = useState(false);
   const [isDraftListModalOpen, setIsDraftListModalOpen] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [defaultReferences, setDefaultReferences] = useState<string[]>([]);
@@ -85,6 +86,27 @@ export function useHome() {
   const [isGeminiModelsLoading, setIsGeminiModelsLoading] = useState(false);
   const [geminiModelsError, setGeminiModelsError] = useState("");
   const [selectedGeminiModel, setSelectedGeminiModel] = useState("gemini-2.5-flash");
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    message: string;
+    title: string;
+  }>({
+    isOpen: false,
+    message: "",
+    title: "알림",
+  });
+
+  const showAlert = (message: string, title = "알림") => {
+    setAlertState({
+      isOpen: true,
+      message,
+      title,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertState((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
@@ -147,6 +169,7 @@ export function useHome() {
     if (!session?.access_token) return;
     setIsGeminiModelsLoading(true);
     setGeminiModelsError("");
+    setGeminiModels([]);
     try {
       const res = await fetch("/api/user/models/gemini", {
         headers: {
@@ -257,6 +280,7 @@ export function useHome() {
 
   const fetchDrafts = async () => {
     if (!session?.access_token) return;
+    setIsDraftsLoading(true);
     try {
       const res = await fetch("/api/posts", {
         headers: {
@@ -269,12 +293,14 @@ export function useHome() {
       }
     } catch (err) {
       console.error("Failed to fetch drafts list:", err);
+    } finally {
+      setIsDraftsLoading(false);
     }
   };
 
   const handleSaveDraft = async () => {
     if (!subject.trim() || !session?.access_token) {
-      alert("주제를 입력해주세요.");
+      showAlert("주제를 입력해주세요.");
       return;
     }
     setIsSavingDraft(true);
@@ -297,14 +323,14 @@ export function useHome() {
       });
 
       if (res.ok) {
-        alert("임시 저장이 완료되었습니다.");
+        showAlert("임시 저장이 완료되었습니다.");
         fetchDrafts();
       } else {
         const err = await res.json();
         throw new Error(err.error || "Failed to save draft");
       }
     } catch (err: any) {
-      alert("임시 저장 실패: " + err.message);
+      showAlert("임시 저장 실패: " + err.message);
     } finally {
       setIsSavingDraft(false);
     }
@@ -312,6 +338,7 @@ export function useHome() {
 
   const handleLoadPost = async (postId: string) => {
     if (!session?.access_token) return;
+    setIsDraftsLoading(true);
     try {
       const detailRes = await fetch(`/api/posts/${postId}`, {
         headers: {
@@ -369,19 +396,22 @@ export function useHome() {
         }
 
         setIsDraftListModalOpen(false);
-        alert("임시 저장된 글을 성공적으로 불러왔습니다.");
+        showAlert("임시 저장된 글을 성공적으로 불러왔습니다.");
       } else {
-        alert("글을 불러오지 못했습니다.");
+        showAlert("글을 불러오지 못했습니다.");
       }
     } catch (err: any) {
       console.error("Load post error:", err);
-      alert("글을 불러오는 도중 오류가 발생했습니다: " + err.message);
+      showAlert("글을 불러오는 도중 오류가 발생했습니다: " + err.message);
+    } finally {
+      setIsDraftsLoading(false);
     }
   };
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm("정말 이 글(임시저장/내역)을 삭제하시겠습니까?")) return;
     if (!session?.access_token) return;
+    setIsDraftsLoading(true);
     try {
       const res = await fetch(`/api/posts/${postId}`, {
         method: "DELETE",
@@ -390,7 +420,7 @@ export function useHome() {
         }
       });
       if (res.ok) {
-        alert("삭제되었습니다.");
+        showAlert("삭제되었습니다.");
         fetchDrafts();
         if (post.id === postId) {
           setPost({
@@ -404,11 +434,13 @@ export function useHome() {
           setProgress(0);
         }
       } else {
-        alert("삭제에 실패했습니다.");
+        showAlert("삭제에 실패했습니다.");
       }
     } catch (err: any) {
       console.error("Delete post error:", err);
-      alert("삭제 도중 오류가 발생했습니다: " + err.message);
+      showAlert("삭제 도중 오류가 발생했습니다: " + err.message);
+    } finally {
+      setIsDraftsLoading(false);
     }
   };
 
@@ -543,7 +575,7 @@ export function useHome() {
       setApiKeys({ openai: "", gemini: "" });
       setIsSdkModalOpen(false);
     } catch (err) {
-      alert("API Key 저장 중 오류가 발생했습니다.");
+      showAlert("API Key 저장 중 오류가 발생했습니다.");
     } finally {
       setIsKeysLoading(false);
     }
@@ -706,7 +738,7 @@ export function useHome() {
 
   const handleSeleniumTest = async () => {
     if (!naverBlogId) {
-      alert("블로그 ID를 먼저 설정해주세요.");
+      showAlert("블로그 ID를 먼저 설정해주세요.");
       setIsProfileModalOpen(true);
       return;
     }
@@ -715,12 +747,12 @@ export function useHome() {
     try {
       const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
       if (!pingRes || !pingRes.ok) {
-        alert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 가이드를 확인하여 프로그램을 먼저 실행해 주세요.");
+        showAlert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 가이드를 확인하여 프로그램을 먼저 실행해 주세요.");
         setIsTokenModalOpen(true);
         setTokenModalTab("install");
         return;
       }
-
+ 
       const runRes = await fetch("http://localhost:5000/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -732,24 +764,24 @@ export function useHome() {
           images: []
         })
       });
-
+ 
       if (runRes.ok) {
-        alert("성공: 로컬 PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.");
+        showAlert("성공: 로컬 PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.", "성공");
       } else {
-        alert("오류: 자동화 프로그램 실행 요청이 실패했습니다.");
+        showAlert("오류: 자동화 프로그램 실행 요청이 실패했습니다.", "오류");
       }
     } catch (err: any) {
       console.error("Local Selenium test error:", err);
-      alert("에러: 자동화 프로그램과 통신할 수 없습니다. " + err.message);
+      showAlert("에러: 자동화 프로그램과 통신할 수 없습니다. " + err.message, "에러");
     } finally {
       setIsTestingSelenium(false);
     }
   };
-
+ 
   const handleLoadDefaultReferences = () => {
     if (defaultReferences.length > 0) {
       setReferences(defaultReferences);
-      alert("기본 벤치마킹 예시를 불러왔습니다.");
+      showAlert("기본 벤치마킹 예시를 불러왔습니다.");
     }
   };
 
@@ -816,6 +848,7 @@ export function useHome() {
     fetchGeminiModels,
     drafts,
     setDrafts,
+    isDraftsLoading,
     isDraftListModalOpen,
     setIsDraftListModalOpen,
     isSavingDraft,
@@ -823,5 +856,8 @@ export function useHome() {
     handleSaveDraft,
     handleLoadPost,
     handleDeletePost,
+    alertState,
+    showAlert,
+    closeAlert,
   };
 }
