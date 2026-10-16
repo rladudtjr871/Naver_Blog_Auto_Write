@@ -3,9 +3,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { PostState } from "../hooks/useHome";
 import { MoreOptionsDropdown } from "./MoreOptionsDropdown";
+import { ImageAttachmentEditor } from "./manual/ImageAttachmentEditor";
 
 
 type GenerationFormProps = {
+  mode?: "manual" | "api";
+  isManualBusy?: boolean;
+  isImageUploading?: boolean;
+  handlePrepareManual: (e: React.FormEvent) => Promise<void>;
   category: string;
   setCategory: (val: string) => void;
   model: string;
@@ -85,7 +90,7 @@ export function GenerationForm(props: GenerationFormProps) {
     };
   }, []);
 
-  const isGenerating = post.status === "PENDING" || post.status === "PROCESSING";
+  const isGenerating = !!props.isManualBusy || !!props.isImageUploading || post.status === "PENDING" || post.status === "PROCESSING";
   const isRecreate = post.id !== null || post.status === "COMPLETED" || post.status === "FAILED" || post.status === "DRAFT";
 
 
@@ -97,11 +102,12 @@ export function GenerationForm(props: GenerationFormProps) {
             <span className="w-1 h-4 bg-[#03c75a] rounded-full inline-block" />
             블로그 글 생성 가이드
           </h2>
-          <p className="text-xs text-[#777] mt-1">블로그 주제와 AI 생성 옵션을 입력해주세요.</p>
+          <p className="text-xs text-[#777] mt-1">주제·흐름·스타일과 이미지를 입력해주세요.</p>
         </div>
         <button
           type="button"
           onClick={() => setIsDraftListModalOpen(true)}
+          disabled={isGenerating}
           className="bg-white hover:bg-gray-50 border border-[#ccd2d6] text-[#555] font-bold text-[11px] px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
         >
           <svg className="w-3.5 h-3.5 text-[#03c75a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -111,7 +117,7 @@ export function GenerationForm(props: GenerationFormProps) {
         </button>
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-4">
+      <form onSubmit={props.mode === "api" ? handleGenerate : props.handlePrepareManual} className="flex flex-col gap-4">
 
         {/* Category */}
         <div>
@@ -139,6 +145,7 @@ export function GenerationForm(props: GenerationFormProps) {
           </div>
         </div>
 
+        {props.mode === "api" && <>
         {/* AI Engine Model Select */}
         <div className="flex flex-col gap-2">
           <label className="block text-xs font-bold text-[#333]">AI 모델 엔진</label>
@@ -235,6 +242,7 @@ export function GenerationForm(props: GenerationFormProps) {
           )}
         </div>
 
+        </>}
         {/* Blog Subject */}
         <div>
           <label className="block text-xs font-bold text-[#333] mb-2">블로그 주제</label>
@@ -286,8 +294,10 @@ export function GenerationForm(props: GenerationFormProps) {
                 기본 예시 불러오기
               </button>
             </div>
-            <span className="text-[10px] text-gray-400">학습할 글의 작성 스타일을 복사해 넣으세요.</span>
           </div>
+        </div>
+
+        <p className="text-[10px] text-gray-400">학습할 글의 작성 스타일을 복사해 넣으세요.</p>
 
           <div className="bg-[#fafbfc] border border-[#e4e8eb] rounded-xl p-3.5 flex flex-col gap-3">
             {/* Tab Headers */}
@@ -312,6 +322,7 @@ export function GenerationForm(props: GenerationFormProps) {
                     {references.length > 1 && (
                       <button
                         type="button"
+                        disabled={isGenerating}
                         onClick={(e) => {
                           e.stopPropagation();
                           const newRefs = references.filter((_, i) => i !== idx);
@@ -335,6 +346,7 @@ export function GenerationForm(props: GenerationFormProps) {
               {references.length < 5 && (
                 <button
                   type="button"
+                  disabled={isGenerating}
                   onClick={() => {
                     const newRefs = [...references, ""];
                     setReferences(newRefs);
@@ -364,18 +376,18 @@ export function GenerationForm(props: GenerationFormProps) {
               className="w-full bg-white border border-[#e4e8eb] rounded-lg px-3.5 py-2.5 text-xs text-[#1e1e1e] outline-none focus:border-[#03c75a] focus:ring-1 focus:ring-[#03c75a] transition-all resize-none placeholder-gray-400 disabled:bg-[#f8f9fa] disabled:text-[#aaa]"
             />
           </div>
-        </div>
 
         {/* Image Input */}
         <div>
           <label className="block text-xs font-bold text-[#333] mb-2">본문 이미지 첨부 ({uploadedImages.length})</label>
+          {props.mode !== "api" && props.isImageUploading && <p role="status" className="mb-2 text-xs text-[#027c39]">사진을 처리하고 있습니다. 완료 후 작성 요청을 준비해주세요.</p>}
           <div className="flex flex-col gap-3">
             <label className="w-full flex flex-col items-center justify-center border border-dashed border-[#ccd2d6] rounded-xl py-6 bg-[#fafbfc] hover:bg-[#f2f4f6] hover:border-[#03c75a] transition-all cursor-pointer group">
               <svg className="w-8 h-8 text-[#9ba5ad] group-hover:text-[#03c75a] transition-colors mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span className="text-xs font-bold text-[#555] group-hover:text-[#03c75a]">클릭하여 이미지 파일 첨부</span>
-              <span className="text-[10px] text-[#999] mt-0.5">PNG, JPG (Vercel Blob 직접 업로드 지원)</span>
+              <span className="text-[10px] text-[#999] mt-0.5">{props.mode === "api" ? "PNG, JPG · 브라우저에서 압축" : "사진은 저장되며 AI 서비스에는 직접 첨부해주세요."}</span>
               <input
                 type="file"
                 multiple
@@ -387,7 +399,7 @@ export function GenerationForm(props: GenerationFormProps) {
             </label>
 
             {/* Thumbnail Row */}
-            {uploadedImages.length > 0 && (
+            {props.mode !== "api" ? <ImageAttachmentEditor images={uploadedImages} setImages={setUploadedImages} disabled={isGenerating} /> : uploadedImages.length > 0 && (
               <div className="grid grid-cols-5 gap-2 bg-[#f8f9fa] border border-[#e4e8eb] p-2 rounded-lg">
                 {uploadedImages.map((src, i) => (
                   <div key={i} className="relative aspect-square rounded-md overflow-hidden border border-gray-200 group">
@@ -395,6 +407,7 @@ export function GenerationForm(props: GenerationFormProps) {
                     <img src={src} alt="Upload thumb" className="w-full h-full object-cover" />
                     <button
                       type="button"
+                      disabled={isGenerating}
                       onClick={() => setUploadedImages((prev) => prev.filter((_, idx) => idx !== i))}
                       className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-red-400 cursor-pointer"
                     >
@@ -413,10 +426,10 @@ export function GenerationForm(props: GenerationFormProps) {
         <div className="flex items-stretch gap-2.5 pt-2">
           <button
             type="submit"
-            disabled={isGenerating || !subject.trim() || !model}
+            disabled={isGenerating || !subject.trim() || (props.mode === "api" && !model)}
             className="flex-1 bg-[#03c75a] hover:bg-[#02b34f] text-white font-bold text-xs py-3.5 rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 glow-btn cursor-pointer"
           >
-            {isRecreate ? "AI 블로그 자동 재생성" : "AI 블로그 자동 생성"}
+            {props.mode !== "api" ? (props.isManualBusy ? "처리 중…" : "AI 작성 요청 준비") : isRecreate ? "AI 블로그 자동 재생성" : "AI 블로그 자동 생성"}
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>

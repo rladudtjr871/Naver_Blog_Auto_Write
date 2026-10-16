@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import type { Session } from "@supabase/supabase-js";
 
 type HeaderProps = {
-  session: any;
+  mode?: "manual" | "api";
+  session: Session | null;
   setIsSdkModalOpen: (open: boolean) => void;
   setIsTokenModalOpen: (open: boolean) => void;
   setTokenModalTab: (tab: "install" | "token") => void;
   setIsProfileModalOpen: (open: boolean) => void;
   handleLogout: () => Promise<void>;
-  isTestingSelenium?: boolean;
-  handleSeleniumTest?: () => void;
 };
 
 export function Header(props: HeaderProps) {
@@ -20,9 +20,7 @@ export function Header(props: HeaderProps) {
     setIsTokenModalOpen, 
     setTokenModalTab, 
     setIsProfileModalOpen, 
-    handleLogout,
-    isTestingSelenium = false,
-    handleSeleniumTest = () => {}
+    handleLogout
   } = props;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -66,26 +64,7 @@ export function Header(props: HeaderProps) {
           <svg className="w-4 h-4 text-[#03c75a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          PC 자동화 프로그램
-        </button>
-
-        <button
-          onClick={handleSeleniumTest}
-          className={`font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-            isTestingSelenium
-              ? "bg-amber-50 hover:bg-red-50 border border-amber-200 hover:border-red-200 text-amber-600 hover:text-red-600 group"
-              : "bg-white hover:bg-amber-50 border border-amber-200 hover:border-amber-300 text-amber-600"
-          }`}
-        >
-          {isTestingSelenium ? (
-            <div className="w-4 h-4 border-2 border-amber-500/20 border-t-amber-500 group-hover:border-red-500/20 group-hover:border-t-red-500 rounded-full animate-spin" />
-          ) : (
-            <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          )}
-          {isTestingSelenium ? "실행 중 (클릭 시 중단)" : "테스트"}
+          확장 프로그램 설치·연결
         </button>
 
         {/* User Dropdown */}
@@ -130,6 +109,8 @@ export function Header(props: HeaderProps) {
               {/* Quick Actions */}
               <div className="p-1">
                 <button
+                  disabled={props.mode !== "api"}
+                  title={props.mode !== "api" ? "API 모드는 현재 사용할 수 없습니다." : undefined}
                   onClick={() => {
                     setIsDropdownOpen(false);
                     setIsSdkModalOpen(true);
@@ -139,7 +120,7 @@ export function Header(props: HeaderProps) {
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
-                  <span>API Key 연동 관리</span>
+                  <span>API Key 연동 관리{props.mode !== "api" ? " (사용 중지)" : ""}</span>
                 </button>
 
                 <button
@@ -153,7 +134,7 @@ export function Header(props: HeaderProps) {
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                   </svg>
-                  <span>자동화 프로그램 설치</span>
+                  <span>확장 프로그램 설치</span>
                 </button>
 
                 <button

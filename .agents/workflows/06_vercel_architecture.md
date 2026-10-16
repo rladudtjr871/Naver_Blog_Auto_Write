@@ -1,29 +1,40 @@
 ---
-description: Vercel & Serverless Architecture Specification
+description: 웹·Supabase·확장 프로그램의 실행 환경과 서버리스 제약
 ---
 
-# Infrastructure: Vercel & Serverless Architecture Specification
+# 웹·확장 프로그램 아키텍처
 
-이 문서는 비용 최적화(무료 티어 활용) 및 빠른 배포를 위해 Vercel 기반의 서버리스 아키텍처 구성을 정의합니다. 개발 및 배포 에이전트는 서버리스 환경의 제약 조건을 고려하여 코드를 작성해야 합니다.
+## 현재 구성과 목표
 
----
+- 현재 웹은 Next.js App Router와 Supabase Auth·SDK를 사용한다. Prisma 스키마·연결 파일이 있으나 API 접근은 코드로 확인한다.
+- 현재 이미지는 압축된 Base64 Data URL로 DB에 저장한다. Blob·S3·Cloudinary를 도입 완료로 설명하지 않는다.
+- 현재 전송은 로컬 Python/Selenium이다. 목표는 웹/API와 Manifest V3 확장 프로그램이며 콘텐츠 스크립트가 네이버 에디터를 조작한다.
+- 저장소 변경·작업 큐·PC 자산 삭제는 별도 구현 범위와 이전 계획이 필요하다.
 
-## ☁️ 1. 클라우드 서비스 구성 (Serverless Stack)
+## 서버리스 실행
 
-### 🖥️ Web & API: Vercel (Hobby Plan)
-* **역할:** Next.js 프론트엔드 호스팅 및 Serverless Functions를 이용한 백엔드 API 구동
-* **주의사항 (중요):** Vercel 무료 티어의 API 요청 최대 실행 시간(Timeout)은 **10초**이다. AI가 블로그 글을 생성하는 데 10초 이상 걸릴 수 있으므로, API 호출 시 대기하지 않고 대시보드에서 상태를 폴링(Polling)하거나 웹소켓/서버 센트 이벤트(SSE) 방식을 고려하거나, Next.js의 `Route Handlers`에서 스트리밍 방식을 활용한다.
+AI 소요 시간과 플랫폼 플랜·런타임·설정에 따른 제한은 구현·배포 시 공식 문서와 실제 설정으로 확인한다. 최대 시간을 일률적으로 10초로 쓰지 않는다.
 
-### 🗄️ Database: Supabase (Free Tier)
-* **역할:** 유저 정보, 암호화된 AI API Key, 임시저장 글 데이터 관리 (PostgreSQL)
-* **연동:** Vercel Integration을 통해 환경 변수를 자동으로 동기화한다.
+응답 전 완료, 플랫폼의 응답 후 실행 수단, 별도 지속 가능한 작업 처리 중 실제 요구에 맞는 방식을 선택한다. 요청 핸들러에서 Promise를 시작하고 반환하는 것만으로 지속이 보장되지 않는다. 폴링은 상태 조회이며 타임아웃 해결책 자체가 아니다.
 
-### 📁 Storage: Vercel Blob (또는 Cloudinary Free)
-* **역할:** 유저가 업로드한 블로그 본문용 이미지 파일 저장
-* **업로드 방식:** 서버를 거치지 않고 브라우저에서 스토리지로 바로 업로드하는 'Client-side Upload' 방식을 채택하여 Vercel API 부하를 줄인다.
+생성 실패·지연·중단 상태, 폴링 종료·재조회 동작을 정의한다. 이미지 포함 요청 크기·DB 용량·메모리 한계를 확인하고 검증 없이 저장소 이전을 실행하지 않는다.
 
----
+## 환경 변수와 비밀 경계
 
-## 🔑 2. 필수 환경 변수 (Environment Variables)
+| 항목 | 용도와 노출 범위 |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | 브라우저·서버의 Supabase URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 공개 키, RLS·서버 인증을 함께 적용 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용, 브라우저·확장 프로그램 포함 금지 |
+| `ENCRYPTION_KEY` | 서버 전용 AI Key 암호화, AES-256에 맞는 키 검증 |
+| `DATABASE_URL`, `DIRECT_URL` | Prisma 연결·관리 작업 사용 시 설정, 서버 전용 |
 
-배포 에이전트는 Vercel Dashboard의 Environment Variables에 아래 변수들이 올바르게 등록되었는지 확인한다.
+키 누락을 고정 비밀 키·관리자 키 대체로 숨기지 않는다. 암호화 키 교체는 기존 암호문 호환·재암호화 영향을 먼저 확인한다.
+
+## 확장 프로그램 연결
+
+개발·운영 URL, 필요한 호스트 권한, 웹 인증 연동, 토큰 갱신·해제와 사용자별 접근을 설계한다. AI Key는 서버에, 네이버 세션은 사용자 브라우저에 둔다.
+
+서비스 워커에는 DOM이 없으므로 팝업·콘텐츠 스크립트·필요한 offscreen 문서의 역할을 분리한다. HTML 클립보드 생성과 실제 입력을 각각 검증한다. 이미지 권한·첨부·원본 참조는 별도 확인한다.
+
+로컬 데몬이나 서버 측 Chrome 실행을 목표 확장 프로그램의 의존성으로 남기지 않는다. 전환 시 기존 사용자의 호환·복구 경로를 명시한다.

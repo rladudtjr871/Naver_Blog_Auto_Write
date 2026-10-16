@@ -37,6 +37,7 @@ model BlogPost {
   userId         String
   title          String?
   content        String?
+  document       Json?
   place          String?
   status         String          @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
   errorMessage   String?

@@ -2,11 +2,12 @@ import crypto from "crypto";
 
 // Ensure we have a 32-byte encryption key
 const getEncryptionKey = (): Buffer => {
-  const secret = process.env.ENCRYPTION_KEY || "fallback-secret-key-must-be-32-chars-long-!!!";
-  // Pad or truncate to ensure exactly 32 bytes (256 bits)
-  const bufferedKey = Buffer.alloc(32);
-  Buffer.from(secret).copy(bufferedKey);
-  return bufferedKey;
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret || Buffer.byteLength(secret, "utf8") < 32) {
+    throw new Error("ENCRYPTION_KEY는 최소 32바이트여야 합니다. 기존 키가 있다면 같은 값을 유지해주세요.");
+  }
+  // Retain first-32-byte behavior for keys previously encrypted by this app.
+  return Buffer.from(secret, "utf8").subarray(0, 32);
 };
 
 const ALGORITHM = "aes-256-gcm";
@@ -52,7 +53,7 @@ export function decrypt(encryptedText: string): string {
     
     return decrypted;
   } catch (error) {
-    console.error("Decryption failed:", error);
+    void error;
     throw new Error("Failed to decrypt secure value");
   }
 }

@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import type { BlogDocument, DocumentImage } from "@/lib/blog-document";
+import { prepareImageUrls, sortDocumentImages } from "@/lib/image-metadata";
+import { useManualImageUpload } from "./useManualImageUpload";
+import type { WritingMode } from "@/lib/writing-mode";
 
 export type ApiKeysState = {
   openai: string;
@@ -15,6 +19,8 @@ export type PostState = {
   content: string | null;
   place?: string | null;
   images: string[];
+  document?: BlogDocument | null;
+  imageRecords?: { id: string; url: string; role?: string }[];
   errorMessage?: string | null;
 };
 
@@ -66,6 +72,7 @@ const compressImage = (file: File, maxWidth = 1024, maxHeight = 1024, quality = 
 export function useHome() {
   // Authentication states
   const [session, setSession] = useState<any>(null);
+  const authOwnerRef = useRef<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authEmail, setAuthEmail] = useState("");
@@ -108,13 +115,14 @@ export function useHome() {
     setAlertState((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const [mode, setMode] = useState<WritingMode>("manual");
+
   // UI states
   const [isSdkModalOpen, setIsSdkModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeysState>({ openai: "", gemini: "" });
   const [savedKeysStatus, setSavedKeysStatus] = useState({ openai: false, gemini: false });
   const [isKeysLoading, setIsKeysLoading] = useState(false);
-  const [isTestingSelenium, setIsTestingSelenium] = useState(false);
-  const wasAbortedRef = useRef(false);
+
   
   // Blog Form states
   const [category, setCategory] = useState("맛집");
@@ -123,6 +131,11 @@ export function useHome() {
   const [place, setPlace] = useState("");
   const [references, setReferences] = useState<string[]>([""]);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const manualImageUpload = useManualImageUpload({
+    compress: compressImage,
+    append: images => setUploadedImages(previous => [...previous, ...images]),
+    onError: () => showAlert("사진을 처리하지 못했습니다. 이미지 파일을 확인하고 다시 첨부해주세요."),
+  });
   
   // Generation Process state
   const [post, setPost] = useState<PostState>({
@@ -140,12 +153,16 @@ export function useHome() {
   useEffect(() => {
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (authOwnerRef.current !== (session?.user.id ?? null)) manualImageUpload.cancel();
+      authOwnerRef.current = session?.user.id ?? null;
       setSession(session);
       setIsAuthLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (authOwnerRef.current !== (session?.user.id ?? null)) manualImageUpload.cancel();
+      authOwnerRef.current = session?.user.id ?? null;
       setSession(session);
       setIsAuthLoading(false);
     });
@@ -158,12 +175,14 @@ export function useHome() {
   // 2. Fetch keys, profile, and available Gemini models when session is established
   useEffect(() => {
     if (session) {
-      fetchKeysStatus();
+      if (mode === "api") {
+        fetchKeysStatus();
+        fetchGeminiModels();
+      }
       fetchProfile();
-      fetchGeminiModels();
       fetchDrafts();
     }
-  }, [session]);
+  }, [session, mode]);
 
   const fetchGeminiModels = async () => {
     if (!session?.access_token) return;
@@ -242,6 +261,10 @@ export function useHome() {
           });
           if (detailRes.ok) {
             const data = await detailRes.json();
+            if (mode === "manual") {
+              if (authOwnerRef.current !== session.user.id) return;
+              manualImageUpload.cancel();
+            }
             
             if (data.category) {
               setCategory(data.category);
@@ -254,7 +277,7 @@ export function useHome() {
               setReferences(data.references);
             }
             if (data.images && data.images.length > 0) {
-              const restoredUrls = data.images.map((img: any) => img.url);
+              const restoredUrls = (mode === "manual" ? sortDocumentImages(data.images as DocumentImage[]) : data.images as DocumentImage[]).map(img => img.url);
               setUploadedImages(restoredUrls);
             }
             
@@ -265,6 +288,8 @@ export function useHome() {
               content: data.content,
               place: data.place,
               images: data.images ? data.images.map((img: any) => img.url) : [],
+              document: data.document ?? null,
+              imageRecords: data.images || [],
               errorMessage: data.errorMessage
             });
             
@@ -299,6 +324,7 @@ export function useHome() {
   };
 
   const handleSaveDraft = async () => {
+    if (mode === "manual" && manualImageUpload.isPending()) return;
     if (!subject.trim() || !session?.access_token) {
       showAlert("주제를 입력해주세요.");
       return;
@@ -315,7 +341,7 @@ export function useHome() {
           category,
           subject,
           references,
-          images: uploadedImages.map(url => ({ url, role: "INCLUDED" })),
+          images: (mode === "manual" ? prepareImageUrls(uploadedImages) : uploadedImages).map(url => ({ url, role: "INCLUDED" })),
           model: model === "GEMINI" ? selectedGeminiModel : "OPENAI",
           place,
           isDraft: true,
@@ -338,6 +364,8 @@ export function useHome() {
 
   const handleLoadPost = async (postId: string) => {
     if (!session?.access_token) return;
+    if (mode === "manual") manualImageUpload.cancel();
+    const requestOwner = session.user.id;
     setIsDraftsLoading(true);
     try {
       const detailRes = await fetch(`/api/posts/${postId}`, {
@@ -347,6 +375,8 @@ export function useHome() {
       });
       if (detailRes.ok) {
         const data = await detailRes.json();
+        if (authOwnerRef.current !== requestOwner) return;
+        if (mode === "manual") manualImageUpload.cancel();
         
         if (data.category) {
           setCategory(data.category);
@@ -361,7 +391,7 @@ export function useHome() {
           setReferences([""]);
         }
         if (data.images && data.images.length > 0) {
-          const restoredUrls = data.images.map((img: any) => img.url);
+          const restoredUrls = (mode === "manual" ? sortDocumentImages(data.images as DocumentImage[]) : data.images as DocumentImage[]).map(img => img.url);
           setUploadedImages(restoredUrls);
         } else {
           setUploadedImages([]);
@@ -374,6 +404,8 @@ export function useHome() {
           content: data.content,
           place: data.place,
           images: data.images ? data.images.map((img: any) => img.url) : [],
+          document: data.document ?? null,
+          imageRecords: data.images || [],
           errorMessage: data.errorMessage
         });
         
@@ -396,7 +428,7 @@ export function useHome() {
         }
 
         setIsDraftListModalOpen(false);
-        showAlert("임시 저장된 글을 성공적으로 불러왔습니다.");
+        showAlert("저장된 글을 성공적으로 불러왔습니다.");
       } else {
         showAlert("글을 불러오지 못했습니다.");
       }
@@ -583,6 +615,12 @@ export function useHome() {
 
   // Image Upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (mode === "manual") {
+      const files = Array.from(e.target.files || []);
+      e.target.value = "";
+      await manualImageUpload.upload(files);
+      return;
+    }
     const files = e.target.files;
     if (files) {
       try {
@@ -601,7 +639,7 @@ export function useHome() {
   // Start generation
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject.trim() || !model || !session?.access_token) return;
+    if (mode !== "api" || !subject.trim() || !model || !session?.access_token) return;
 
     setProgress(10);
     setPost({
@@ -694,6 +732,8 @@ export function useHome() {
           content: data.content,
           place: data.place,
           images: data.images ? data.images.map((img: any) => img.url) : [],
+          document: data.document ?? null,
+          imageRecords: data.images || [],
           errorMessage: data.errorMessage,
         });
 
@@ -717,6 +757,7 @@ export function useHome() {
   }, []);
 
   const handleReset = () => {
+    if (mode === "manual") manualImageUpload.cancel();
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
@@ -736,48 +777,6 @@ export function useHome() {
     setUploadedImages([]);
   };
 
-  const handleSeleniumTest = async () => {
-    if (!naverBlogId) {
-      showAlert("블로그 ID를 먼저 설정해주세요.");
-      setIsProfileModalOpen(true);
-      return;
-    }
-    
-    setIsTestingSelenium(true);
-    try {
-      const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
-      if (!pingRes || !pingRes.ok) {
-        showAlert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 가이드를 확인하여 프로그램을 먼저 실행해 주세요.");
-        setIsTokenModalOpen(true);
-        setTokenModalTab("install");
-        return;
-      }
- 
-      const runRes = await fetch("http://localhost:5000/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          blogId: naverBlogId,
-          title: "블로그 자동화 프로그램 테스트",
-          content: "안녕하세요!\n이 글은 블로그 자동 등록 프로그램이 정상적으로 실행되는지 테스트하기 위해 자동으로 작성된 글입니다.\n이 글이 보이신다면 프로그램이 성공적으로 연동된 것입니다.",
-          place: "서울특별시청",
-          images: []
-        })
-      });
- 
-      if (runRes.ok) {
-        showAlert("성공: 로컬 PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.", "성공");
-      } else {
-        showAlert("오류: 자동화 프로그램 실행 요청이 실패했습니다.", "오류");
-      }
-    } catch (err: any) {
-      console.error("Local Selenium test error:", err);
-      showAlert("에러: 자동화 프로그램과 통신할 수 없습니다. " + err.message, "에러");
-    } finally {
-      setIsTestingSelenium(false);
-    }
-  };
- 
   const handleLoadDefaultReferences = () => {
     if (defaultReferences.length > 0) {
       setReferences(defaultReferences);
@@ -786,6 +785,8 @@ export function useHome() {
   };
 
   return {
+    mode,
+    setMode,
     session,
     isAuthLoading,
     authMode,
@@ -824,6 +825,8 @@ export function useHome() {
     setReferences,
     uploadedImages,
     setUploadedImages,
+    isImageUploading: mode === "manual" && manualImageUpload.isUploading,
+    isImageUploadPending: manualImageUpload.isPending,
     post,
     progress,
     handleSignUp,
@@ -833,8 +836,6 @@ export function useHome() {
     handleImageUpload,
     handleGenerate,
     handleReset,
-    isTestingSelenium,
-    handleSeleniumTest,
     defaultReferences,
     setDefaultReferences,
     hasDefaultReferences,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { decrypt } from "@/lib/crypto";
 import { getAuthUser } from "@/lib/auth";
+import { apiError } from "@/lib/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     let decryptedKey;
     try {
       decryptedKey = decrypt(apiKeyRecord.encryptedKey);
-    } catch (decryptErr) {
+    } catch {
       return NextResponse.json({ 
         models: [], 
         error: "API 키 복호화에 실패했습니다." 
@@ -33,7 +34,9 @@ export async function GET(request: Request) {
     }
 
     // Call Google API to get models list
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${decryptedKey}`);
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+      headers: { "x-goog-api-key": decryptedKey }, signal: AbortSignal.timeout(15_000), cache: "no-store",
+    });
     
     if (!response.ok) {
       return NextResponse.json({ 
@@ -54,10 +57,10 @@ export async function GET(request: Request) {
     ];
 
     const data = await response.json();
-    const modelsList: any[] = [];
+    const modelsList: { id: string; displayName: string; description: string }[] = [];
 
     if (data.models && Array.isArray(data.models)) {
-      data.models.forEach((model: any) => {
+      data.models.forEach((model: { name: string; displayName?: string; description?: string; supportedGenerationMethods?: string[] }) => {
         const modelId = model.name.replace("models/", "");
         // Filter: only models that support content generation and are on the allowed list
         if (
@@ -79,9 +82,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ success: true, models: modelsList });
-  } catch (error: any) {
-    console.error("Fetch Gemini models error:", error);
-    const status = error.message?.includes("Unauthorized") || error.message?.includes("Missing") ? 401 : 500;
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status });
+  } catch (error: unknown) {
+    return apiError(error, "Gemini 모델 목록을 가져오지 못했습니다.");
   }
 }

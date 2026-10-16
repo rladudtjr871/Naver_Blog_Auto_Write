@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import { exec, ChildProcess } from "child_process";
 import { promisify } from "util";

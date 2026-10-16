@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS "BlogPost" (
     "userId" UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
     title TEXT,
     content TEXT,
+    document JSONB,
     place TEXT,
     status TEXT DEFAULT 'PENDING' NOT NULL, -- PENDING, PROCESSING, COMPLETED, FAILED
     "errorMessage" TEXT,
@@ -53,8 +54,24 @@ CREATE TABLE IF NOT EXISTS "Image" (
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 6. 사용자 기본 참고 글
+CREATE TABLE IF NOT EXISTS public."DefaultReference" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "userId" UUID NOT NULL REFERENCES public."User"(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public."DefaultReference" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage their own DefaultReferences" ON public."DefaultReference";
+CREATE POLICY "Users can manage their own DefaultReferences"
+    ON public."DefaultReference" FOR ALL TO authenticated
+    USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."DefaultReference" TO authenticated;
+GRANT ALL ON public."DefaultReference" TO service_role;
+
 -- =========================================================================
--- [옵션] Supabase Row Level Security (RLS) 설정 가이드
+-- Supabase Row Level Security (RLS) 설정
 -- =========================================================================
 -- 기본적으로 RLS를 활성화하면 외부 Anon Key를 통한 무단 접근이 모두 차단됩니다.
 -- 개발 환경(데모용) 또는 프로덕션(인증 연동용) 목적에 맞게 아래 스크립트 중 하나를 선택해 실행하세요.
@@ -79,9 +96,10 @@ ALTER TABLE "Image" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own profile" ON "User"
     FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- 3. ApiKey 테이블: 본인의 API 키 정보만 CRUD 가능 (핵심 보안 사항)
-CREATE POLICY "Users can manage their own API keys" ON "ApiKey"
-    FOR ALL USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
+-- 3. ApiKey는 인증·소유권을 확인하는 서버 API에서만 접근합니다.
+DROP POLICY IF EXISTS "Users can manage their own API keys" ON public."ApiKey";
+REVOKE ALL ON public."ApiKey" FROM anon, authenticated;
+GRANT ALL ON public."ApiKey" TO service_role;
 
 -- 4. BlogPost 테이블: 본인이 생성한 블로그 포스팅만 CRUD 가능
 CREATE POLICY "Users can manage their own BlogPosts" ON "BlogPost"

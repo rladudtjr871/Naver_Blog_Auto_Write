@@ -1,0 +1,11 @@
+{
+  "title": [".se-title-text [contenteditable='true']", ".se-documentTitle [contenteditable='true']", ".se-title-text .se-text-paragraph", ".se-section-documentTitle .se-text-paragraph"],
+  "body": [".se-main-container [contenteditable='true']", ".se-component-content [contenteditable='true']", ".se-main-container .se-text-paragraph", ".se-section-text .se-text-paragraph"],
+  "paragraphs": ".se-text-paragraph",
+  "container": ".se-main-container",
+  "component": ".se-component",
+  "placeholder": ".se-placeholder",
+  "images": ".se-main-container img",
+  "fileInput": "input[type=file][accept*='image']",
+  "imageButton": ["button[data-name='image']", "button.se-image-toolbar-button", "button[aria-label='사진']"]
+}

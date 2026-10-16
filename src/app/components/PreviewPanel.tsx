@@ -2,9 +2,14 @@
 
 import React from "react";
 import { PostState } from "../hooks/useHome";
+import { legacyDocument, validateBlogDocument } from "@/lib/blog-document";
+import { DocumentPreview } from "./preview/DocumentPreview";
+import { useExtensionTransfer } from "../hooks/useExtensionTransfer";
 
 type PreviewPanelProps = {
+  mode?: "manual" | "api";
   post: PostState;
+  session: { access_token: string };
   progress: number;
   handleReset: () => void;
   naverBlogId: string;
@@ -14,8 +19,17 @@ type PreviewPanelProps = {
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
-  const { post, progress, handleReset, naverBlogId, setIsTokenModalOpen, setTokenModalTab, showAlert } = props;
-  const [isRegistering, setIsRegistering] = React.useState(false);
+  const { post, handleReset, naverBlogId, session, setIsTokenModalOpen, setTokenModalTab, showAlert } = props;
+  const transfer = useExtensionTransfer();
+  const preview = React.useMemo(() => {
+    try {
+      const images = post.imageRecords || post.images.map((url, index) => ({ id: String(index), url }));
+      const document = post.document != null ? validateBlogDocument(post.document, images.map(image => image.id)) : legacyDocument(post.title || "", post.content || "", images);
+      return { document, images, error: "" };
+    } catch (error) {
+      return { document: null, images: [], error: error instanceof Error ? error.message : "문서를 표시하지 못했습니다." };
+    }
+  }, [post]);
 
   return (
     <div className="naver-panel rounded-2xl p-6 flex-1 flex flex-col min-h-[500px] bg-white border border-[#e4e8eb] shadow-xs">
@@ -27,7 +41,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
             </svg>
           </div>
           <h3 className="text-sm font-bold text-[#1e1e1e] mb-1">대기 중</h3>
-          <p className="text-xs text-[#777] max-w-[280px] leading-normal">좌측 생성 가이드를 채우고 AI 블로그 자동 생성 버튼을 클릭하면 작성이 시작됩니다.</p>
+          <p className="text-xs text-[#777] max-w-[280px] leading-normal">{props.mode === "api" ? "좌측 생성 가이드를 채우고 AI 블로그 자동 생성 버튼을 클릭하면 작성이 시작됩니다." : "좌측 가이드를 채우고 작성 요청을 준비하세요. 구독 AI에서 작성한 결과를 가져오면 미리보기가 표시됩니다."}</p>
         </div>
       )}
 
@@ -39,14 +53,14 @@ export function PreviewPanel(props: PreviewPanelProps) {
               className="absolute inset-0 border-4 border-t-[#03c75a] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" 
               style={{ animationDuration: "1s" }}
             />
-            <span className="text-xs font-bold text-[#1e1e1e]">{progress}%</span>
+            <span className="text-xs font-bold text-[#1e1e1e]">처리 중</span>
           </div>
           <h3 className="text-sm font-bold text-[#1e1e1e] mb-1">
             {post.status === "PENDING" ? "포스팅 대기 중..." : "AI 블로그 포스팅 작성 중..."}
           </h3>
           <p className="text-xs text-[#777] max-w-[260px] text-center leading-normal">
             {post.status === "PENDING" 
-              ? "서버가 요청을 확인하고 비동기 생성 스레드를 준비하고 있습니다." 
+              ? "서버에서 생성 요청을 처리하고 있습니다."
               : "선택하신 AI 모델 엔진이 글을 예쁘게 구성하고 있습니다. 잠시만 기다려 주세요."}
           </p>
         </div>
@@ -85,60 +99,23 @@ export function PreviewPanel(props: PreviewPanelProps) {
             
             <div className="flex items-center gap-2">
               <button
-                disabled={isRegistering}
+                disabled={transfer.isTransferring || !preview.document}
                 onClick={async () => {
-                  if (!naverBlogId) {
-                    showAlert("블로그 ID가 설정되지 않았습니다. 우측 상단 계정 메뉴에서 블로그 ID를 먼저 설정해 주세요.");
-                    return;
-                  }
-
-                  setIsRegistering(true);
-                  try {
-                    const pingRes = await fetch("http://localhost:5000/ping").catch(() => null);
-                    if (!pingRes || !pingRes.ok) {
-                      showAlert("로컬 PC에 자동화 프로그램이 실행 중이지 않습니다.\n우측 상단의 'PC 자동화 프로그램' 메뉴를 클릭하여 다운로드 및 실행 방법을 확인해 주세요.");
-                      setTokenModalTab("install");
-                      setIsTokenModalOpen(true);
-                      return;
-                    }
-
-                    const runRes = await fetch("http://localhost:5000/run", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        blogId: naverBlogId,
-                        title: post.title,
-                        content: post.content,
-                        place: post.place,
-                        images: post.images || []
-                      })
-                    });
-
-                    if (runRes.ok) {
-                      showAlert("성공: PC 자동화 프로그램이 실행되었습니다. 열린 크롬 창을 확인해 주세요.", "성공");
-                    } else {
-                      showAlert("오류: 자동화 프로그램 실행 요청이 실패했습니다.", "오류");
-                    }
-                  } catch (e: any) {
-                    console.error("Local write trigger error:", e);
-                    showAlert("에러: 자동화 프로그램과 통신할 수 없습니다. " + e.message, "에러");
-                  } finally {
-                    setIsRegistering(false);
-                  }
+                  if (post.id) await transfer.transferPost(post.id, session.access_token, naverBlogId);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#03c75a] hover:bg-[#02b34f] text-white text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isRegistering ? (
+                {transfer.isTransferring ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>등록 요청 중...</span>
+                    <span>글 전달 중...</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                    <span>블로그 자동 등록</span>
+                    <span>확장 프로그램으로 전달</span>
                   </>
                 )}
               </button>
@@ -162,20 +139,11 @@ export function PreviewPanel(props: PreviewPanelProps) {
             </div>
           </div>
 
-          {/* Title Output */}
-          <div className="bg-[#f8f9fa] border border-[#e4e8eb] rounded-xl p-4 mb-4">
-            <span className="text-[10px] font-extrabold text-[#03c75a] uppercase tracking-wider block mb-1">Title</span>
-            <h4 className="text-base font-bold text-[#1e1e1e] leading-snug">{post.title}</h4>
-          </div>
-
-          {/* Content Body Preview */}
-          <div className="flex-1 border border-[#e4e8eb] rounded-xl p-4 overflow-y-auto max-h-[350px] bg-white relative">
-            <span className="text-[10px] font-extrabold text-[#6366f1] uppercase tracking-wider block mb-2 sticky top-0 bg-white pb-1">
-              Body Content (Markdown)
-            </span>
-            <div className="text-xs text-[#333] whitespace-pre-wrap leading-relaxed font-sans">
-              {post.content}
-            </div>
+          <p className="mb-3 text-xs text-gray-500">굵게 · 글자색 · 밑줄과 문단·빈 줄을 원본 기준으로 표시합니다. 실제 네이버 보존 여부는 입력 후 확인해 주세요.</p>
+          <div role="status" aria-live="polite" className="mb-3 text-xs leading-6 text-gray-700">{transfer.message}</div>
+          <button type="button" onClick={() => { setTokenModalTab("install"); setIsTokenModalOpen(true); }} className="mb-3 self-start text-xs text-[#028c40] underline">확장 프로그램 설치·연결 방법</button>
+          <div className="flex-1 border border-[#e4e8eb] rounded-xl p-4 overflow-y-auto max-h-[550px] bg-white">
+            {preview.document ? <DocumentPreview document={preview.document} images={preview.images} /> : <p role="alert" className="text-sm text-red-600">문서 형식을 확인해 주세요: {preview.error}</p>}
           </div>
         </div>
       )}

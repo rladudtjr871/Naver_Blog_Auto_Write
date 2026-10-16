@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "블로그 작성 도우미",
+  "version": "1.0.0",
+  "minimum_chrome_version": "118",
+  "description": "웹에서 확인한 서식 문서를 네이버 에디터에 전송합니다. 자동 발행하지 않습니다.",
+  "permissions": ["storage", "scripting", "activeTab", "clipboardWrite", "debugger"],
+  "host_permissions": ["https://blog.naver.com/*", "http://localhost:3000/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "popup.html"},
+  "content_scripts": [{"matches": ["http://localhost:3000/*"], "js": ["bridge.js"], "run_at": "document_start"}]
+}

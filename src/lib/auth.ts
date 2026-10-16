@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { assertSupabaseConfiguration } from "./supabase-admin";
 
 export interface AuthenticatedUser {
   id: string;
@@ -11,6 +12,7 @@ export interface AuthenticatedUser {
  * Throws an error if authentication fails.
  */
 export async function getAuthUser(request: Request): Promise<AuthenticatedUser> {
+  assertSupabaseConfiguration();
   const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
